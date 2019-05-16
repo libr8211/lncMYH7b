@@ -1,0 +1,519 @@
+---
+title: "Differential Expression: lncMYH7b Knockdown RNA-seq in mESCs"
+author: "`r getOption('author')`"
+date: "`r Sys.Date()`"
+params:
+  design: !r formula("~ lncMYH7b")
+  contrasts: !r list(
+      c(
+        factor = "lncMYH7b",
+        numerator = "ASO_KD",
+        denominator = "ASO_CTL"))
+  alpha: 0.01
+  lfc_threshold: 0
+  data_dir: !r file.path("../data", Sys.Date())
+  results_dir: !r file.path("../results", Sys.Date(), "differential_expression")
+  dropbox_dir: "lncMYH7B_KD"
+  dropbox_token: "~/dropbox.RDS"
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, message=FALSE}
+options(stringsAsFactors = FALSE)
+bcbioRNASeq::prepareRNASeqTemplate()
+source("_setup.R"); source("_utils.R"); source("_plotting.R")
+
+library(data.table); library(rcartocolor); library(genefilter); library(tximport)
+
+# Directory paths ==============================================================
+invisible(mapply(
+    FUN = dir.create,
+    path = c(params$data_dir, params$results_dir),
+    MoreArgs = list(showWarnings = FALSE, recursive = TRUE)
+))
+
+```
+
+## Introduction
+
+
+```{r import_counts, message=FALSE, warning=FALSE, results='hide'}
+
+# Read in gencode annotations
+gtf <- rtracklayer::import("../input/annotation/gencode.v29.annotation.gtf")
+
+
+#TODO: put this parsing in a setup file to clean this up.
+names(gtf@elementMetadata@listData)[which(names(gtf@elementMetadata@listData) == "gene_id")] <-
+  "geneID"
+names(gtf@elementMetadata@listData)[which(names(gtf@elementMetadata@listData) == "gene_name")] <-
+  "geneName"
+names(gtf@elementMetadata@listData)[which(names(gtf@elementMetadata@listData) == "gene_type")] <-
+  "geneBiotype"
+gtf@elementMetadata$id <- gtf@elementMetadata$geneID
+
+
+gtfdf <- gtf %>% as.data.frame()
+g2s <- as.data.frame(gtf@elementMetadata@listData) %>% select(geneID, geneName) %>% distinct()
+tx2gene <- gtfdf %>%
+  mutate(TXNAME = transcript_id, GENEID = geneID) %>%
+  select(TXNAME, GENEID)
+
+```
+
+Sample 12047_3 has very low read counts and we will drop it for the rest of the analysis.
+
+```{r drop_sample}
+
+
+# Read in sample annotations
+samples <- read.csv("../sample_info/lncMYH7b_KD_samplesheet.csv") %>%
+  mutate(lncMYH7b = factor(lncMYH7b))
+# Drop sample
+samples <- samples %>% filter(SampleID != "12047_3")
+
+rownames(samples) <- samples$SampleID
+
+
+# Read in the salmon counts data.
+files <- list.files("../results/salmon")
+files <- files[!grepl("12047_3", files)]
+
+sample_ids <- sapply(files, function(x) {
+  tmp <- unlist(strsplit(x, "_"))[1:2]
+  paste(tmp, collapse = "_")
+  })
+
+files <- file.path("../results", "salmon", files, "quant.sf")
+names(files) <- sample_ids
+txi.salmon <- tximport(files, type = "salmon", tx2gene = tx2gene)
+
+
+gene_ids_used <- rownames(txi.salmon$counts)
+gtf <- gtf[which(gtf$geneID %in% gene_ids_used)]
+gtf <- gtf[which(gtf$type == "gene")]
+```
+
+```{r convert_counts}
+# TPM
+tpm <- txi.salmon$abundance
+
+# Export count tables
+write.table(tpm, file = paste0(params$results_dir, "/tpm.txt"), 
+            sep="\t", row.names=T, col.names=T, quote=F)
+```
+
+
+```{r create_DESeqDataSet}
+# Create DESeq2 experiment objects.
+rownames(samples)
+samples <- samples[colnames(txi.salmon$counts),]
+stopifnot(all(rownames(samples) == colnames(txi.salmon$counts)))
+
+dds <- DESeq2::DESeqDataSetFromTximport(txi.salmon,
+                                        colData   = samples,
+                                        design    = params$design,
+                                        rowRanges = gtf)
+```
+
+# Pre-filtering
+
+While it is not necessary to pre-filter low count genes before running the DESeq2 functions, there are two reasons which make pre-filtering useful: by removing rows in which there are very few reads, we reduce the memory size of the dds data object, and we increase the speed of the transformation and testing functions within DESeq2. Here we perform a minimal pre-filtering to keep only rows that have at least 10 reads total. Note that more strict filtering to increase power is automatically applied via independent filtering on the mean of normalized counts within the `results()` function.
+
+```{r prefilter}
+# Note that this criteria can be made more stringent
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
+print(dds)
+```
+
+
+# Factor reference level
+
+By default, [R][] will choose a reference level for factors based on alphabetical order. Then, if you never tell the [DESeq2][] functions which level you want to compare against (e.g. which level represents the control group), the comparisons will be based on the alphabetical order of the levels. There are two solutions: you can either explicitly tell results which comparison to make using the contrast argument (this will be shown later), or you can explicitly set the factors levels. You should only change the factor levels of variables in the design before running the [DESeq2][] analysis, not during or afterward. Setting the factor levels can be done in two ways, using either the `factor()` or `relevel()` functions. Generally we recommend using `relevel()` here.
+
+```{r relevel, eval=FALSE}
+# Specify the reference level (preferred)
+dds$lncMYH7b <- relevel(dds$lncMYH7b, ref = "ASO_CTL")
+
+# # Alternatively, can explicitly define, using `factor()`
+# # When using this approach, put the reference level (control) first
+# dds$treatment <- factor(dds$treatment, levels = c("control", "folic_acid"))
+
+print(dds$lncMYH7b)
+```
+
+# Differential expression analysis
+
+Now that our `DESeqDataSet` is properly set up, we can move on to performing the differential expression. The standard differential expression analysis steps for [DESeq2][] are wrapped into a single function, `DESeq()`. Results tables are generated using the function `results()`, which extracts a results table with log2 fold changes, *P* values and adjusted *P* values. With no additional arguments to `results()`, the log2 fold change and Wald test *P* value will be for the last variable in the design formula (`design()`), and if this is a factor, the comparison will be the last level of this variable over the reference level (see previous note on factor levels). However, the order of the variables of the design do not matter so long as the user specifies the comparison to build a results table for, using the name or contrast arguments of results.
+
+```{r deseq}
+dds <- DESeq(dds)
+saveData(dds, dir = params$data_dir)
+```
+
+# Variance stabilization
+
+After we perform the differential expression, we need to calculate variance-stabilized counts, which are stored in a `DESeqTransform` object. These transformed counts are useful for visualization. We currently recommend using `varianceStabilizingTransformation()` but `rlog()` is a good alternate.
+
+```{r variance_stabilization}
+# Alternatively, can use `rlog()` here, but it is slower
+rld <- varianceStabilizingTransformation(dds)
+interestingGroups(rld) <- "lncMYH7b"
+saveData(rld, dir = params$data_dir)
+```
+
+# Results
+
+For contrast argument as character vector:
+
+1. Design matrix factor of interest.
+2. Numerator for LFC (expt).
+3. Denominator for LFC (control).
+
+```{r contrasts}
+# factor; numerator; denominator
+# levels(dds$genotype)
+# help("results", "DESeq2")
+stopifnot(is.list(params$contrasts))
+contrasts <- params$contrasts
+names <- vapply(
+    X = contrasts,
+    FUN = function(x) {
+        paste(x[[1]], x[[2]], "vs", x[[3]], sep = "_")
+
+    },
+    FUN.VALUE = "character"
+)
+names(contrasts) <- names
+print(contrasts)
+```
+
+
+```{r res_unshrunken}
+res_list_unshrunken <- mapply(
+    FUN = results,
+    contrast = contrasts,
+    MoreArgs = list(
+        object = dds,
+        alpha = params$alpha
+    ),
+    SIMPLIFY = FALSE,
+    USE.NAMES = FALSE
+)
+names(res_list_unshrunken) <- names
+saveData(res_list_unshrunken, dir = params$data_dir)
+```
+
+Now let's calculate shrunken log2 fold change values with `DESeq2::lfcShrink()`. We're using the "normal" shrinkage estimator (default in DESeq2); the "apeglm" shrinkage estimator is also promising but doens't work well with complex contrast designs.
+
+```{r res_shrunken}
+# For `type` arguments other than "normal", `coef` argument is required.
+# Otherwise can use `contrast`, which is more intuitive and readable.
+# If using `coef` number, must match order in `resultsNames(dds)`.
+# The new apeglm method is great but currently only works with coef.
+# help("lfcShrink", "DESeq2")
+# help("coef", "DESeq2")
+# help("resultsNames", "DESeq2")
+# This step can be a little slow and sped up with the `parallel` argument.
+res_list_shrunken <- mapply(
+    FUN = lfcShrink,
+    res = res_list_unshrunken,
+    contrast = contrasts,
+    MoreArgs = list(
+        dds = dds,
+        type = "normal"
+    ),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+)
+saveData(res_list_shrunken, dir = params$data_dir)
+```
+
+
+Let's save a copy of the prior information used during the shrinkage procedure.
+
+```{r prior_info}
+lapply(res_list_shrunken, priorInfo)
+```
+
+We performed the analysis using a BH adjusted *P* value cutoff of `r params$alpha` and a log fold-change (LFC) ratio cutoff of `r params$lfc_threshold`.
+
+
+# Plots
+
+## PCA
+
+Principal Component Analysis (PCA) is a statistical technique used to identify global patterns in high-dimensional datasets. It is commonly used to explore the similarity of biological samples in RNA-seq datasets. To achieve this, gene expression values are transformed into Principal Components (PCs), a set of linearly uncorrelated features which represent the most relevant sources of variance in the data, and subsequently visualized using a scatter plot.
+
+Each point represents an RNA-seq sample. Samples with similar gene expression profiles are closer in the three-dimensional space. If provided, sample groups are indicated using different colors, allowing for easier interpretation of the results.
+
+```{r plot_deg_pca, message=FALSE}
+plotDEGPCA(res_list_shrunken[[1]], counts = rld, alpha = 0.01, lfcThreshold = 0)
+```
+
+
+## Heatmap
+
+This plot shows only differentially expressed genes on a per-sample basis. We have scaled the data by row and used the `ward.D2` method for clustering [@Ward1963-xf].
+
+```{r plot_deg_heatmap}
+plotDEGHeatmap(res_list_shrunken[[1]], counts = rld, clusteringMethod = "ward.D2", scale = "row", alpha = 0.01)
+```
+
+## Gene scatter plots {.tabset .tabset-fade .tabset-pills}
+
+### Mean average (MA)
+
+An MA plot compares transformed counts on `M` (log ratio) and `A` (mean average) scales [@Yang2002-sx].
+
+```{r plot_ma}
+plotMA(res_list_shrunken[[1]], lfcThreshold = params$lfc_threshold, ntop = 30, gene2symbol = g2s, alpha = 0.01)
+```
+
+### Volcano
+
+A volcano plot compares significance (BH-adjusted *P* value) against fold change (log2) [@Cui2003-rn; @Li2014-ll].
+
+```{r plot_volcano}
+plotVolcano(res_list_shrunken[[1]], lfcThreshold = params$lfc_threshold, ntop = 20, gene2symbol = g2s, alpha = 0.01)
+```
+
+## MYH7b plot
+
+This is the gene we intended to knockdown, so let's just see what this gene looks like.
+
+```{r myh7b}
+
+"ENSG00000078814.15"
+
+gene_name <- "ENSG00000078814.15"
+gene_tpm <- tpm[which(row.names(tpm) == gene_name), ] %>%
+    as.data.frame() %>% rownames_to_column()
+  colnames(gene_tpm) <- c("SampleID", "tpm")
+  gene_tpm <- merge(gene_tpm, samples)
+
+g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b))
+g + geom_point()  + ggtitle("MYH7B expression")
+  
+
+# Wow, okay, so one sample has MYH7B jacked way, way up. 
+# Let's see what it looks like between conditions without that gene.
+gene_tpm <- gene_tpm %>% filter(SampleID != "12150_3")
+g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b))
+g + geom_point()  + ggtitle("MYH7B expression")
+
+# Hmm, even here it doesn't seem to be a difference between conditions. Let's see what the bam file looks like.
+
+```
+
+```{r klhl15}
+
+"ENSG00000174010.9"
+
+gene_name <- "ENSG00000174010.9"
+gene_tpm <- tpm[which(row.names(tpm) == gene_name), ] %>%
+    as.data.frame() %>% rownames_to_column()
+  colnames(gene_tpm) <- c("SampleID", "tpm")
+  gene_tpm <- merge(gene_tpm, samples)
+
+g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b))
+g + geom_point()  + ggtitle("KLHL15 expression")
+```
+
+```{r disp2_plot}
+genes_to_plot <- c("DISP2", "SMG1P4", "EIF3CL")
+gene_ids_to_plot <- g2s[which(g2s$geneName %in% genes_to_plot), ]
+
+for(i in 1:length(genes_to_plot)) {
+  gene_name <- gene_ids_to_plot[i,"geneName"]
+  gene_id <- gene_ids_to_plot[i,"geneID"]
+  gene_tpm <- tpm[which(row.names(tpm) == gene_id), ] %>%
+    as.data.frame() %>% rownames_to_column()
+  colnames(gene_tpm) <- c("SampleID", "tpm")
+  gene_tpm <- merge(gene_tpm, samples)
+  
+  g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b)) + 
+    geom_point()  + ggtitle(paste0(gene_name, " expression"))
+  show(g)
+}
+
+```
+
+Hmm, I'm wondering now if these genes share a common subsequence 
+that is what the ASO is actually binding to...
+
+```{r}
+gl <- gtfdf %>% filter(geneName %in% genes_to_plot, type == "transcript")
+glbed <- gl %>% select(seqnames, start, end, geneName, score, strand)
+glbed$score <- 0
+write.table(glbed, "downregulated_genes.bed", sep = "\t",
+            quote = FALSE, row.names = FALSE, col.names = FALSE)
+# bedtools merge -s -c 4 -o collapse  -i dn_sort.bed > dn_merge.bed
+# bedtools sort -i downregulated_genes.bed > dn_sort.bed
+gl <- read.table("dn_merge.bed", sep = "\t")
+gl$V5 <- sapply(gl$V5, function(x) { unlist(strsplit(x, ","))[1]})
+write.table(gl, "down_genes.bed", sep = "\t",
+            quote = FALSE, row.names = FALSE, col.names = FALSE)
+# bedtools getfasta -fi GRCh38.p12.genome.fa -bed down_genes.bed -fo down_gene.fa
+
+library(seqinr)
+
+gl <- gl %>% unite(reg, V2:V3, sep = "-", remove = F)
+gl <- gl %>% unite(fa_header, V1:reg, sep = ":", remove = F)
+
+glfa <- read.fasta("down_gene.fa")
+names(glfa)
+all(names(glfa) %in% gl$fa_header)
+gs <- unique(gl$V5)
+# Okay here we want to merge the fasta sequence for each gene, so 
+# that we have the full sequence for the gene. 
+g1_regions <- gl[which(gl$V5 == gs[1]),"fa_header"]
+g1_fa <- glfa[g1_regions]
+
+g1_seq <- sapply(g1_fa, function(x) {
+  paste(x, collapse = "")
+})
+# Now this part might not be super legit. I guess what I 
+# should really do is longest transcript or each transcript
+# seperately. 
+# This concatenation may be creating sequences that don't exist...
+g1_seq <- paste(g1_seq, collapse = "")
+
+g2_regions <- gl[which(gl$V5 == gs[2]),"fa_header"]
+g2_fa <- glfa[g2_regions]
+g2_seq <- sapply(g2_fa, function(x) {
+  paste(x, collapse = "")
+})
+g2_seq <- paste(g2_seq, collapse = "")
+
+g3_regions <- gl[which(gl$V5 == gs[3]),"fa_header"]
+g3_fa <- glfa[g3_regions]
+g3_seq <- sapply(g3_fa, function(x) {
+  paste(x, collapse = "")
+})
+g3_seq <- paste(g3_seq, collapse = "")
+
+seqs <- c(g1_seq, g2_seq, g3_seq)
+PTXQC::LCSn(seqs, min_LCS_length = 0)
+# The answer here is that the longest common sequence is
+# quite small so I think we need a proper alignment.
+# ttttggt
+# is not very complex and is only 7 characters long
+# Basically what we're looking for here is a k-mer that's
+# not in the rest of the transcriptome with the idea
+# being that the ASO is targeting the wrong thing.
+gencode_transcript_fasta <- read.fasta("gencode.v30.transcripts.fa.gz")
+tnames <- sapply(names(gencode_transcript_fasta), function(x) {
+  unlist(strsplit(x, "\\|", fixed = F))[[1]]
+})
+
+gencode_transcript_fasta <- gencode_transcript_fasta[which(tnames %in% gl$transcript_id)]
+
+tmp_names <- sapply(names(gencode_transcript_fasta), function(x) {
+  t1 <- unlist(strsplit(x, "\\|", fixed = F))[[1]]
+  t2 <- unlist(strsplit(x, "\\|", fixed = F))[[5]]
+  paste(t2, t1, collapse = "_")
+})
+write.fasta(gencode_transcript_fasta, names = tmp_names, 
+            file.out = "downregulated_transcripts.fa")
+
+dn_aln <- read.alignment("downregulated_transcripts_aln.clustalw",
+                         format = "clustal")
+aln <- as.matrix(dn_aln)
+# Here, what we can do is look for the longest regions shared between the 
+# three genes and blast the genome to see if these sequences show up anywhere else.
+# Anyway, the cost-benefit to this may be marginal. Best to stop here for now.
+# nchar("tggcatagatattctctcca")
+```
+
+```{r myh7}
+
+"ENSG00000092054.12"
+
+gene_name <- "ENSG00000092054.12"
+gene_tpm <- tpm[which(row.names(tpm) == gene_name), ] %>%
+    as.data.frame() %>% rownames_to_column()
+  colnames(gene_tpm) <- c("SampleID", "tpm")
+  gene_tpm <- merge(gene_tpm, samples)
+
+g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b))
+g + geom_point()  + ggtitle("MYH7 expression")
+
+```
+```{r myh6}
+
+"ENSG00000197616.11"
+
+gene_name <- "ENSG00000197616.11"
+gene_tpm <- tpm[which(row.names(tpm) == gene_name), ] %>%
+    as.data.frame() %>% rownames_to_column()
+  colnames(gene_tpm) <- c("SampleID", "tpm")
+  gene_tpm <- merge(gene_tpm, samples)
+
+g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b))
+g + geom_point()  + ggtitle("MYH6 expression")
+
+```
+# Results tables
+
+Subset the results into separate tables, containing all genes, differentially expressed genes in both directions, and directional tables.
+
+```{r results_tables, results="asis"}
+# Here we're creating subset tables of the DEGs, and adding the normalized
+# counts used by DESeq2 for the differential expression analysis.
+mdout <- capture.output(res_tbl_list <- mapply(
+    FUN = resultsTables,
+    results = res_list_shrunken,
+    MoreArgs = list(
+        counts = dds,
+        lfcThreshold = params$lfc,
+        summary = TRUE,
+        headerLevel = 2,
+        write = TRUE,
+        dir = params$results_dir
+        # dropboxDir = params$dropbox_dir,
+        # rdsToken = params$dropbox_token
+    ),
+    SIMPLIFY = FALSE,
+    USE.NAMES = TRUE
+))
+
+# This is a little hack to force the dropbox links to autodownload.
+mdout <- gsub("dl=0", "dl=1", mdout)
+cat(paste(mdout,collapse="\n"))
+
+
+saveData(res_tbl_list, dir = params$data_dir)
+```
+
+
+
+Differentially expressed gene (DEG) tables are sorted by BH-adjusted P value, and contain the following columns:
+
+- `baseMean`: Mean of the normalized counts per gene for all samples.
+- `log2FoldChange`: log2 fold change.
+- `lfcSE`: log2 standard error.
+- `stat`: Wald statistic.
+- `pvalue`: Walt test *P* value.
+- `padj`: BH adjusted Wald test *P* value (corrected for multiple comparisons; aka FDR).
+
+## Top tables
+
+Only the top up- and down-regulated genes (arranged by log2 fold change) are shown.
+
+## Top tables
+
+Only the top up- and down-regulated genes (arranged by log2 fold change) are shown.
+
+```{r top_tables, results="asis"}
+invisible(mapply(
+    FUN = topTables,
+    object = res_tbl_list,
+    MoreArgs = list(coding = FALSE)
+))
+```
+
+```{r footer, child="_footer.Rmd"}
+```
