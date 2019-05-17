@@ -1,11 +1,11 @@
 #!/usr/bin/env nextflow
 
-params.name          = "lncMYH7b_KD_RNA-seq"
+params.name          = "lncMYH7b_KD_RNA-seq Novogene"
 params.overhang      = '74'
 params.multiqc       = "$baseDir/multiqc"
 params.genome        = "Gencode_human/release_29/GRCh38.p12.genome.fa.gz"
 params.annotation    = "Gencode_human/release_29/gencode.v29.annotation.gtf.gz"
-params.reads         = "$baseDir/input/fastq/*{_R1_001,_R2_001}.fastq.gz"
+params.reads         = "$baseDir/input/fastq/*{_1,_2}.fastq.gz"
 params.outdir        = "results"
 
 
@@ -177,8 +177,8 @@ process map {
     """
     STAR  --runThreadN 4 \
           --genomeDir ${index} \
-          --readFilesIn ${reads.findAll{ it =~ /\_R1_001\./ }.join(',')} \
-                        ${reads.findAll{ it =~ /\_R2_001\./ }.join(',')} \
+          --readFilesIn ${reads.findAll{ it =~ /\_1\./ }.join(',')} \
+                        ${reads.findAll{ it =~ /\_2\./ }.join(',')} \
           --readFilesCommand zcat \
           --outSAMtype BAM Unsorted \
           --outSAMmapqUnique 60 \
