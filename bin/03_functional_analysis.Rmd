@@ -1,5 +1,5 @@
 ---
-title: "Functional Analysis: Tug1 Knockout RNA-seq in mESCs"
+title: "Functional Analysis: lncMYH7b Knockdown RNA-seq in iPSCMs, Novogene"
 author: "`r getOption('author')`"
 date: "`r Sys.Date()`"
 bibliography: bibliography.bib
