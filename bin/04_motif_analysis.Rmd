@@ -1,22 +1,25 @@
 ---
-title: "RcisTarget: Transcription factor binding motif enrichment"
-abstract: >
-  This tutorial shows how to use **RcisTarget** to obtain  
-  transcription factor binding motifs enriched on a gene list. 
-vignette: >
-  %\VignetteIndexEntry{RcisTarget: Transcription factor binding motif enrichment}
-  %\VignetteEngine{knitr::rmarkdown}
-output: 
-  html_document:
-    toc: yes
-    toc_float: yes
-    number_sections: false
-  pdf_document:
-    toc: yes
-  html_notebook:
-    toc: yes
+title: 'Functional Analysis: lncMYH7b Knockdown RNA-seq in iPSCMs, Novogene'
+author: "`r getOption('author')`"
+date: "`r Sys.Date()`"
+editor_options:
+  chunk_output_type: console
+params:
+  data_dir: !r file.path("../data", Sys.Date())
+  dds_file: !r file.path("../data", Sys.Date(), "dds.rda")
+  go_class: BP
+  lfc_threshold: 0.5
+  organism: Homo sapiens
+  res_file: !r file.path("../data", Sys.Date(), "res_list_shrunken.rda")
+  results_dir: !r file.path("../results", Sys.Date(), "TF_analysis")
+bibliography: bibliography.bib
 ---
 ```{r libraries, echo=FALSE, message=FALSE, warning=FALSE}
+BiocManager::install("RcisTarget")
+
+featherURL <- "https://resources.aertslab.org/cistarget/databases/homo_sapiens/hg19/refseq_r45/mc9nr/gene_based/hg19-tss-centered-10kb-7species.mc9nr.feather" 
+download.file(featherURL, destfile=basename(featherURL))
+
 suppressPackageStartupMessages({
 library(RcisTarget)
 library(RcisTarget.hg19.motifDBs.cisbpOnly.500bp) 
@@ -26,18 +29,10 @@ library(data.table)
 })
 ```
 
-*Vignette built on `r format(Sys.time(), "%b %d, %Y")` with RcisTarget **version `r packageVersion("RcisTarget")`***.
-
-# What is RcisTarget?
-RcisTarget is an R-package to identify transcription factor (TF) binding motifs over-represented on a gene list. 
-
-RcisTarget is based on the methods previously implemented in 
-[i-cisTarget](http://gbiomed.kuleuven.be/apps/lcb/i-cisTarget) (web interface, region-based) and [iRegulon](http://iregulon.aertslab.org) (Cytoscape plug-in, gene-based). 
-
 If you use RcisTarget in your research, please cite: 
-```{r citation, echo=FALSE}
+#```{r citation, echo=FALSE}
 print(citation("RcisTarget")[1], style="textVersion")
-```
+#```
 
 # Overview of the workflow
 The function `cisTarget()` allows to perform the motif-enrichment analysis on a gene list. The main input parameters are the gene list and the motif databases, which should be chosen depending on the organism and the search space around the TSS of the genes.
@@ -45,7 +40,7 @@ This is a sample on how to run the analysis (see the following sections for deta
 ```{r overview, eval=FALSE}
 library(RcisTarget)
 # Load gene sets to analyze. e.g.:
-geneList1 <- read.table(file.path(system.file('examples', package='RcisTarget'), "hypoxiaGeneSet.txt"), stringsAsFactors=FALSE)[,1]
+geneList1 <- read.csv("../results/2019-05-28/differential_expression/geneID_down.csv", header = TRUE)
 geneLists <- list(geneListName=geneList1)
 # geneLists <- GSEABase::GeneSet(genes, setName="geneListName") # alternative
 # Select motif database to use (i.e. organism and distance around TSS)
@@ -58,7 +53,7 @@ motifEnrichmentTable_wGenes <- cisTarget(geneLists, motifRankings,
 
 **Advanced use**: The `cisTarget()` function is enough for most simple analyses. However, for further flexibility (e.g. removing unnecessary steps on bigger analyses), RcisTarget also provides the possibility to run the inner functions individually. 
 Running `cisTarget()` is equivalent to running this code:
-```{r overviewAdvanced, eval=FALSE}
+#```{r overviewAdvanced, eval=FALSE}
 # 1. Calculate AUC
 motifs_AUC <- calcAUC(geneLists, motifRankings)
 # 2. Select significant motifs, add TF annotation & format as table
@@ -72,7 +67,7 @@ motifEnrichmentTable_wGenes <- addSignificantGenes(motifEnrichmentTable,
                                                    rankings=motifRankings, 
                                                    nCores=1,
                                                    method="aprox")
-```
+#```
 
 
 # Before starting
@@ -94,16 +89,15 @@ BiocManager::install(c("DT", "visNetwork"))
 ## Some tips...
 ### Help
 At any time, remember you an access the help files for any function (i.e. `?cisTarget`), and the other tutorials in the package with the following commands:
-```{r vignette, eval=FALSE}
+#```{r vignette, eval=FALSE}
 # Explore tutorials in the web browser:
 browseVignettes(package="RcisTarget") 
 # Commnad line-based:
 vignette(package="RcisTarget") # list
 vignette("RcisTarget") # open
-```
+#```
 
-### Reports
-To generate an HTML report with your own data and comments, you can use the `.Rmd file` of this tutorial as template  (i.e. copy the .Rmd file, and edit it as [R notebook](http://rmarkdown.rstudio.com/r_notebooks.html) in RStudio).
+
 ```{r editRmd, eval=FALSE}
 vignetteFile <- paste(file.path(system.file('doc', package='RcisTarget')), 
                       "RcisTarget.Rmd", sep="/")
@@ -137,16 +131,6 @@ geneLists$anotherGeneSet
 lengths(geneLists)
 ```
 
-In this example we will be using a list of genes up-regulated in MCF7 cells under hypoxia conditions ([PMID:16565084](https://www.ncbi.nlm.nih.gov/pubmed/?term=16565084)).
-
-The original work highlighted the role of hypoxia-inducible factor (HIF1-alpha or HIF1A) pathways under hypoxia. This gene list is also used for the turorials in iRegulon (http://iregulon.aertslab.org/tutorial.html).
-
-```{r sampleGeneSet}
-txtFile <- paste(file.path(system.file('examples', package='RcisTarget')),
-                 "hypoxiaGeneSet.txt", sep="/")
-geneLists <- list(hypoxia=read.table(txtFile, stringsAsFactors=FALSE)[,1])
-head(geneLists$hypoxia)
-```
 
 
 ## Required databases
@@ -173,11 +157,11 @@ with 7 species. Of course, selecting Human, Mouse or fly depending on your input
 
 The list of all available databases is at https://resources.aertslab.org/cistarget/. Each database is stored in a `.feather` file . Note that the download size is typically over 1GB (100GB for human region databases), we recommend downloading the files with zsync_curl (see the [Help with downloads](https://resources.aertslab.org/cistarget/help.html)).
 
-For example, to download within R:
-```{r downloadDatabases, eval=FALSE}
+For example, to download within R: ***has been downloaded is in bin directory***
+#```{r downloadDatabases, eval=FALSE}
 featherURL <- "https://resources.aertslab.org/cistarget/databases/homo_sapiens/hg19/refseq_r45/mc9nr/gene_based/hg19-tss-centered-10kb-7species.mc9nr.feather" 
 download.file(featherURL, destfile=basename(featherURL)) # saved in current dir
-```
+#```
 
 Once you have the .feather files, they can be loaded with `importRankings()`: 
 ```{r loadDatabases, eval=FALSE}
@@ -208,29 +192,6 @@ motifAnnotations_hgnc[(directAnnotation==TRUE)
                                (TF %in% c("HIF1A")), ]
 ```
 
-
-#### Database example (subset)
-In addition to the full versions of the databases (20k motifs), we also provide a subset containing only the 4.6k motifs from cisbp (human only: *RcisTarget.hg19.motifDBs.cisbpOnly.500bp*). These subsets are available in Bioconductor for demonstration purposes. They will provide the same AUC score for the existing motifs. However, we highly recommend to use the full version (~20k motifs) for more accurate results, since the normalized enrichment score (NES) of the motif depends on the total number of motifs in the database.
-
-To install this package:
-```{r installDatabases, eval=FALSE}
-# From Bioconductor
-if (!requireNamespace("BiocManager", quietly=TRUE))
-    install.packages("BiocManager")
-BiocManager::install("RcisTarget.hg19.motifDBs.cisbpOnly.500bp")
-```
-
-For this vignette (demonstration purposes), we will use this database:
-```{r loadDatabasesCisbpOnly}
-library(RcisTarget.hg19.motifDBs.cisbpOnly.500bp)
-# Rankings
-data(hg19_500bpUpstream_motifRanking_cispbOnly)
-motifRankings <- hg19_500bpUpstream_motifRanking_cispbOnly
-motifRankings
-# Annotations
-data(hg19_motifAnnotation_cisbpOnly) 
-motifAnnotations_hgnc <- hg19_motifAnnotation_cisbpOnly
-```
 
 
 ## Running the analysis 
