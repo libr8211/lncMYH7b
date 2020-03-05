@@ -1,0 +1,23 @@
+#!/bin/bash
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M047_1_1.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M047_1_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M047_3_2.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M047_3_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_1_1.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_1_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_2_2.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_2_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_4_1.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_4_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M047_1_2.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M047_1_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M047_4_1.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M047_4_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_1_2.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_1_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_3_1.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_3_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_4_2.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_4_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M047_3_1.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M047_3_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M047_4_2.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M047_4_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_2_1.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_2_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_KD_Novogene/input/fastq/M150_3_2.fq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/M150_3_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/GFP_1_R1_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/GFP_1_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/GFP_2_R2_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/GFP_2_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/SP_2_R1_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/SP_2_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/GFP_1_R2_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/GFP_1_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/SP_1_R1_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/SP_1_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/SP_2_R2_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/SP_2_R2.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/GFP_2_R1_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/GFP_2_R1.fastq.gz
+mv /scratch/Shares/rinn/LindseyJoe/lncMYH7b_spOE/input/fastq/SP_1_R2_001.fastq.gz /scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq/SP_1_R2.fastq.gz
