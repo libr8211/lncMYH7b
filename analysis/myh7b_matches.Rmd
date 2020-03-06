@@ -1,0 +1,301 @@
+---
+title: "myh7b_matches"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(stringsAsFactors = FALSE)
+library(tidyverse)
+library(GenomicFeatures)
+library(ChIPseeker)
+library(regioneR)
+source("../util/_setup.R")
+```
+
+# Purpose 
+
+Gene knockouts can have more mild effects than gene knockdowns. One potential mechanism of compensation has recieved some attent last year, which is that gene mutations that truncate the encoded protein can trigger the expression of related genes in a process termed nonsense-induced transcriptional compensation. 
+
+![nitc](nitc_wilkinson_nature.png)
+
+##### Papers of note:
+- https://www.nature.com/articles/d41586-019-00823-5
+- 
+- 
+
+In cardiac and skeletal muscle, exon 7 is skipped in MYH7b, leading to a premature termination codon. Since this skipped-exon transcript is both expressed and present in the nucleus in our model system (hiPSC-CMs), it's possible that this transcriptional compensentation mechanism is active. 
+
+### Upon MYB7b knockdown 3x more genes are downregulated than upregulated 
+
+In our MYH7b knockdown experiment, there were more downregulated than upregulated genes and the mean log2FoldChange for the downregulated genes is higher as well. 
+
+```{r, warning=FALSE}
+# MYH7B KD results
+res <- read.csv("lnc_myh7b_aso_kd_vs_aso_ctl_all.csv")
+
+res_sig <- res %>% filter(padj < 0.05)
+res_sig$direction <- "upregulated"
+res_sig[which(res_sig$log2FoldChange < 0), "direction"] <- "downregulated"
+
+res_sig_summary <- res_sig %>% group_by(direction) %>%
+  summarize(count = n(), mean_l2FC = mean(log2FoldChange))
+
+
+g <- ggplot(res_sig_summary, aes(x = direction, y = count, fill = direction)) 
+g + geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("#a8404c","#424242"), guide = FALSE) + 
+  coord_flip() + 
+  ggtitle("MYH7b KD DEG padj < 0.05")
+
+g <- ggplot(res_sig_summary, aes(x = direction, y = abs(mean_l2FC), fill = direction)) 
+g + geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("#a8404c","#424242"), guide = FALSE) + 
+  coord_flip() + 
+  ggtitle("MYH7b KD DEG padj < 0.05")
+
+```
+
+This is consistent with transcriptional compensation being active and dependent on the amount of the MYH7b RNA expression level.
+
+One hypothesis for how this transcriptional is targeted to genes that are upregulated is that segments of the RNA are bound by a chromatin modifying complex and directed to regions in the genome complementary to either the sense or antisense RNA. The complex can then activate transcription at that site. 
+
+In order to assess whether the downregulated genes could potentially have been activated by this mechanism, we can see where MYH7b subsequences map throughout the genome using blast and then see if they overlap with the down-regulated regions. 
+
+#### Promoter-region overlaps
+
+Using blast with permissive parameters, such that matches down to 18 bp in length are returned, we can get a good idea of where the MYH7b RNA may have complementarity in the genome.
+
+The get a total of 1803 matches in hg38, ranging in length from 18 to 400 bp. The longer segments are of course mapping to the gene's locus itself. The matches come from all along the MYH7b RNA. [TODO: if we want to pursue this, will need to filter out exon 7].
+
+```{r, warning=FALSE}
+# Blast results were calculated with `blast_myh7b.sh` 
+matches <- read.table("genomic_myh7b_matches_permissive.out")
+colnames(matches) <- c("qaccver", "saccver", "pident", "length", 
+                       "mismatch", "gapopen", "qstart", "qend", 
+                       "sstart", "send", "evalue", "bitscore", "sstrand")
+# Convert to GRanges object
+# - it will only take ranges where the end is larger than the start
+matches <- matches %>%
+  mutate(diff = sstart - send)
+matches$start <- matches$sstart
+matches$end <- matches$send
+
+matches[which(matches$diff > 0), "start"] <- matches[which(matches$diff > 0), "send"]
+matches[which(matches$diff > 0), "end"] <- matches[which(matches$diff > 0), "sstart"]
+matches <- matches %>%
+  mutate(new_diff_neg = (start - end) < 0)
+
+granges_matches <- GRanges(seqnames = as(matches$saccver, "Rle"), 
+                           ranges = IRanges(start = matches$start, end = matches$end))
+granges_matches$query <- matches$qaccver
+# This filtering has got to do with a weir issue with comparing genomes that
+# don't have the same seqnames in regioneR
+canonical_chrs <- unique(granges_matches@seqnames)[grep("chr",unique(granges_matches@seqnames))] %>%
+  as.character()
+granges_matches <- granges_matches[which(granges_matches@seqnames %in% canonical_chrs)]
+
+matches <- matches %>% 
+  arrange(evalue) %>%
+  mutate(rank = 1:nrow(.))
+
+### All the regions mapping to the MYH7b locus are mapping to the plus strand.
+### this makes sense, becuase that is the strand the RNA is transcribed from. 
+g <- ggplot(matches, aes(x = qstart, xend = qend, y = rank, yend = rank, color = sstrand))
+g + geom_segment() + 
+  scale_color_manual(values = c("#a8404c","#424242")) + 
+  ggtitle("MYH7b genomic matches aligned to MYH7b")
+
+```
+
+```{r, warning=FALSE}
+# Let's grab the promoters
+# TODO: the newest analysis was done with gencode v32. However, v33 is out now.
+txdb_gencode_v29 <- makeTxDbFromGFF(file = "gencode.v29.annotation.gtf")
+# We're going to use pretty big promoter regions here.
+# Really this is "is there a match in the 5' end of the gene"
+# TODO: look at how the promoter region size changes the results. 
+prom <- GenomicFeatures::promoters(GenomicFeatures::genes(txdb_gencode_v29), 
+                                   upstream=3000, downstream=3000, use.names = T)
+
+# Let's get just the promoters of the downregulated genes.
+downreg_promoters <- prom[which(prom$gene_id %in% 
+                                  res_sig[which(res_sig$direction == "downregulated"), "geneID"])]
+pt <- permTest(A = granges_matches,
+                 B = downreg_promoters, 
+                 ntimes = 500, 
+                 alternative = "auto",
+                 evaluate.function = numOverlaps,
+                 randomize.function = randomizeRegions,
+                 non.overlapping = FALSE, 
+                 verbose = FALSE,
+                 mc.cores = 1,
+                 genome = "hg38")
+plot(pt)
+
+upreg_promoters <- prom[which(prom$gene_id %in% 
+                                  res_sig[which(res_sig$direction == "upregulated"), "geneID"])]
+pt <- permTest(A = granges_matches,
+                 B = upreg_promoters, 
+                 ntimes = 500, 
+                 alternative = "auto",
+                 evaluate.function = numOverlaps,
+                 randomize.function = randomizeRegions,
+                 non.overlapping = FALSE, 
+                 verbose = FALSE,
+                 mc.cores = 1,
+                 genome = "hg38")
+plot(pt)
+
+
+notreg_promoters <- prom[which(prom$gene_id %in% 
+                                  res[which(!(res$geneID %in% res_sig$geneID)),"geneID"])]
+pt <- permTest(A = granges_matches,
+                 B = notreg_promoters, 
+                 ntimes = 500, 
+                 alternative = "auto",
+                 evaluate.function = numOverlaps,
+                 randomize.function = randomizeRegions,
+                 non.overlapping = FALSE, 
+                 verbose = FALSE,
+                 mc.cores = 1,
+                 genome = "hg38")
+plot(pt)
+
+# Hmm, well of course it's matching genes. It's just enriched in promoters in general. 
+
+
+```
+
+#### Where do promoters w/ matches reside in the volcano plot?
+
+```{r, warning=FALSE}
+promoters_overlaps <- findOverlaps(prom, granges_matches) %>%
+  as.data.frame()
+# Let's fill in the metadata for these matches.
+promoters_overlaps$gene_id <- prom$gene_id[promoters_overlaps$queryHits]
+
+genes_with_matches <- unique(promoters_overlaps$gene_id)
+res$has_overlap <- FALSE
+res[which(res$geneID %in% genes_with_matches), "has_overlap"] <- TRUE
+table(res$has_overlap)
+
+
+g <- ggplot(res %>% filter(has_overlap == FALSE, padj < 0.05), 
+            aes(x = log2FoldChange, y = -log10(padj), color = has_overlap))
+g + geom_point(alpha = 0.3) + 
+  geom_point(data = res %>% filter(has_overlap == TRUE, padj < 0.05), alpha = 1) + 
+  scale_color_manual(values = c("#424242","#a8404c"))
+```
+
+#### What is the fold-change distribution for those that have matches?
+
+```{r, warning=FALSE}
+g <- ggplot(res, aes(x = log2FoldChange, fill = has_overlap))
+g + geom_density(alpha = 0.3) + 
+  scale_fill_manual(values = c("#424242","#a8404c"))
+```
+
+#### Gene body overlaps
+
+```{r, warning=FALSE}
+
+gtf <- rtracklayer::import("gencode.v29.annotation.gtf")
+# Hmm, let's take the gene region +/- 1-2kb
+genes <- gtf[which(gtf$type == "gene")]
+expandRange = function(x, upstream=2000, downstream=1000) {	
+  strand_is_minus = strand(x) == "-"	
+  on_plus = which(!strand_is_minus)	
+  on_minus = which(strand_is_minus)	
+  start(x)[on_plus] = start(x)[on_plus] - upstream	
+  start(x)[on_minus] = start(x)[on_minus] - downstream	
+  end(x)[on_plus] = end(x)[on_plus] + downstream	
+  end(x)[on_minus] = end(x)[on_minus] + upstream	
+  x	
+}	
+gene_region <- expandRange(genes, upstream = 3000, downstream = 1000)
+
+
+downreg_gene_regions <- gene_region[which(gene_region$gene_id %in% 
+                          res_sig[which(res_sig$direction == "downregulated"),"geneID"])]
+pt <- permTest(A = downreg_gene_regions,
+                 B = granges_matches, 
+                 ntimes = 500, 
+                 alternative = "auto",
+                 evaluate.function = numOverlaps,
+                 randomize.function = randomizeRegions,
+                 non.overlapping = FALSE, 
+                 verbose = FALSE,
+                 mc.cores = 1,
+                 genome = "hg38")
+plot(pt)
+```
+
+```{r, warning=FALSE}
+# Hmm, what about the genes with MYH7b matches, 
+# what is their log2FC distribution?
+gene_overlaps <- findOverlaps(gene_region, granges_matches) %>%
+  as.data.frame()
+# Let's fill in the metadata for these matches.
+gene_overlaps$gene_id <- gene_region$gene_id[gene_overlaps$queryHits]
+
+genes_with_matches <- unique(gene_overlaps$gene_id)
+res$has_genebody_overlap <- FALSE
+res[which(res$geneID %in% genes_with_matches), "has_genebody_overlap"] <- TRUE
+table(res$has_genebody_overlap)
+g <- ggplot(res, aes(x = log2FoldChange, fill = has_genebody_overlap))
+g + geom_density(alpha = 0.3) + 
+  scale_fill_manual(values = c("#424242","#a8404c"))
+```
+
+Hmm, even more of a bias here to downregulated genes.
+
+```{r, warning=FALSE}
+res$direction <- 0
+res[which(res$log2FoldChange < 0 & res$padj < 0.05), "direction"] <- -1
+res[which(res$log2FoldChange > 0 & res$padj < 0.05), "direction"] <- 1
+res_genebody_sum <- res %>% filter(padj < 0.05) %>%
+  group_by(has_genebody_overlap, direction) %>%
+  summarize(count = n())
+res_genebody_sum
+# TODO: hypergeometric?
+# total matches -- 
+
+# table(res$has_genebody_overlap)
+# table(res$direction)
+# # Of the matched genes, are more of them downregulated than you'd expect?
+# nrow(res %>% filter(!is.na(padj)))
+# x <- 68
+# m <- 786
+# n <- 16341
+# k <- 577
+# 
+# 
+# # x, q	
+# # vector of quantiles representing the number of white balls drawn without replacement from an urn which contains both black and white balls.
+# # 
+# # m	
+# # the number of white balls in the urn.
+# # 
+# # n	
+# # the number of black balls in the urn.
+# # 
+# # k	
+# # the number of balls drawn from the urn, hence must be in 0,1,…, m+n.
+#   
+# res_vals <- res %>% filter(!is.na(padj))
+# nrow(res_vals)
+# table(res_vals$has_genebody_overlap)
+# signif(phyper(x, m, n, k) - cumsum(dhyper(x, m, n, k)), digits = 3)
+```
+
+```{r, warning=FALSE}
+g <- ggplot(res %>% filter(has_genebody_overlap == FALSE, padj < 0.05), 
+            aes(x = log2FoldChange, y = -log10(padj), color = has_genebody_overlap))
+g + geom_point(alpha = 0.3) + 
+  geom_point(data = res %>% filter(has_genebody_overlap == TRUE, padj < 0.05), alpha = 1) + 
+  scale_color_manual(values = c("#424242","#a8404c"))
+```
+
