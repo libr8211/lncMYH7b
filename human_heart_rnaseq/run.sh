@@ -16,8 +16,8 @@ nextflow run nf-core/rnaseq -r 1.4.1 \
 -resume \
 --singleEnd \
 --reads 'fastq/*.fastq' \
---fasta ../../genomes/references/Homo_sapiens/Gencode/v33/GRCh38.p13.genome.fa \
---gtf ../../genomes/references/Homo_sapiens/Gencode/v33/gencode.v33.annotation.gtf \
+--fasta ../../../genomes/references/Homo_sapiens/Gencode/v33/GRCh38.p13.genome.fa \
+--gtf ../../../genomes/references/Homo_sapiens/Gencode/v33/gencode.v33.annotation.gtf \
 --pseudo_aligner salmon \
 --gencode \
 -c ../nextflow.config
