@@ -14,14 +14,10 @@ echo "You've requested $SLURM_CPUS_ON_NODE core."
 module load singularity/3.1.1
 nextflow run nf-core/rnaseq -r 1.4.2 \
 -resume \
---reads 'fastq/*{_R1,_R2}.fastq.gz' \
---fasta ../../../genomes/Homo_sapiens/Gencode/v33/GRCh38.p13.genome.fa \
---gtf ../../../genomes/Homo_sapiens/Gencode/v33/gencode.v33.annotation.gtf \
-=======
 -profile singularity \
 --reads 'fastq/*{_R1,_R2}.fastq.gz' \
 --fasta ../../../genomes/Homo_sapiens/Gencode/v33/GRCh38.p13.genome.fa \
---gtf ../util/gencode.v33.annotation.gtf \
+--gtf ../../../genomes/Homo_sapiens/Gencode/v33/gencode.v33.annotation.gtf \
 --pseudo_aligner salmon \
 --gencode \
 -c ../nextflow.config
