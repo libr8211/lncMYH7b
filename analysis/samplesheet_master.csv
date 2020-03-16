@@ -1,0 +1,76 @@
+﻿SampleID,SampleType,Condition,BioReplicate,FilePath
+M150_2,hiPSCM,ASO_KD,2,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+M150_3,hiPSCM,ASO_KD,3,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+M150_4,hiPSCM,ASO_KD,4,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+M047_2,hiPSCM,ASO_CTL,2,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+M047_3,hiPSCM,ASO_CTL,3,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+M047_4,hiPSCM,ASO_CTL,4,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+M047_1,hiPSCM,ASO_CTL,1,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+SP_1,hiPSCM,SP_OE,1,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+SP_2,hiPSCM,SP_OE,2,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+GFP_1,hiPSCM,SP_CTL,1,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+GFP_2,hiPSCM,SP_CTL,2,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/ipscm_rnaseq/fastq
+SRR7426784,heart sample,NF,1,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426785,heart sample,NF,2,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426786,heart sample,NF,3,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426787,heart sample,NF,4,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426788,heart sample,NF,5,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426789,heart sample,NF,6,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426790,heart sample,NF,7,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426791,heart sample,NF,8,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426792,heart sample,NF,9,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426793,heart sample,NF,10,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426794,heart sample,NF,11,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426795,heart sample,NF,12,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426796,heart sample,NF,13,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426797,heart sample,NF,14,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426798,heart sample,DCM,1,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426799,heart sample,DCM,2,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426800,heart sample,DCM,3,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426801,heart sample,DCM,4,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426802,heart sample,DCM,5,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426803,heart sample,DCM,6,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426804,heart sample,DCM,7,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426805,heart sample,DCM,8,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426806,heart sample,DCM,9,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426807,heart sample,DCM,10,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426808,heart sample,DCM,11,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426809,heart sample,DCM,12,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426810,heart sample,DCM,13,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426811,heart sample,DCM,14,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426812,heart sample,DCM,15,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426813,heart sample,DCM,16,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426814,heart sample,DCM,17,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426815,heart sample,DCM,18,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426816,heart sample,DCM,19,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426817,heart sample,DCM,20,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426818,heart sample,DCM,21,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426819,heart sample,DCM,22,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426820,heart sample,DCM,23,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426821,heart sample,DCM,24,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426822,heart sample,DCM,25,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426823,heart sample,DCM,26,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426824,heart sample,DCM,27,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426825,heart sample,DCM,28,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426826,heart sample,DCM,29,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426827,heart sample,DCM,30,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426828,heart sample,DCM,31,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426829,heart sample,DCM,32,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426830,heart sample,DCM,33,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426831,heart sample,DCM,34,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426832,heart sample,DCM,35,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426833,heart sample,DCM,36,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426834,heart sample,DCM,37,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426835,heart sample,ICM,1,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426836,heart sample,ICM,2,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426837,heart sample,ICM,3,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426838,heart sample,ICM,4,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426839,heart sample,ICM,5,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426840,heart sample,ICM,6,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426841,heart sample,ICM,7,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426842,heart sample,ICM,8,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426843,heart sample,ICM,9,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426844,heart sample,ICM,10,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426845,heart sample,ICM,11,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426846,heart sample,ICM,12,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
+SRR7426847,heart sample,ICM,13,/scratch/Shares/rinn/LindseyJoe/lncMYH7b/human_heart_rnaseq/fastq
