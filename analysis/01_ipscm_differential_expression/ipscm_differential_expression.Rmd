@@ -18,17 +18,9 @@ editor_options:
 ```{r setup, message=FALSE}
 options(stringsAsFactors = FALSE)
 bcbioRNASeq::prepareRNASeqTemplate()
-source("_setup.R"); source("_utils.R"); source("_plotting.R")
+source("_setup.R"); source("../../util/_util.R"); source("../../util/_plotting.R")
 
 library(data.table); library(rcartocolor); library(genefilter); library(tximport)
-
-# Directory paths ==============================================================
-invisible(mapply(
-    FUN = dir.create,
-    path = c(params$data_dir, params$results_dir),
-    MoreArgs = list(showWarnings = FALSE, recursive = TRUE)
-))
-
 ```
 
 ## Introduction
@@ -37,7 +29,7 @@ invisible(mapply(
 ```{r import_counts, message=FALSE, warning=FALSE, results='hide'}
 
 # Read in gencode annotations
-gtf <- rtracklayer::import("../input/annotation/gencode.v29.annotation.gtf")
+gtf <- rtracklayer::import("../../util/gencode.v33.annotation.gtf")
 
 
 #TODO: put this parsing in a setup file to clean this up.
@@ -49,6 +41,10 @@ names(gtf@elementMetadata@listData)[which(names(gtf@elementMetadata@listData) ==
   "geneBiotype"
 gtf@elementMetadata$id <- gtf@elementMetadata$geneID
 
+# Oh wow, okay. So, we made the exon7skipped version from v29
+# and the gene id for MYH7b changed in the mean time. 
+# TODO: clean this up and re-run.
+which(gtf$geneID == "ENSG00000078814.15")
 
 gtfdf <- gtf %>% as.data.frame()
 g2s <- as.data.frame(gtf@elementMetadata@listData) %>% dplyr::select(geneID, geneName) %>% distinct()
@@ -58,59 +54,80 @@ tx2gene <- gtfdf %>%
 
 ```
 
+TODO: is this still relevant?
 Sample 12047_3 has very low read counts and we will drop it for the rest of the analysis.
 
 ```{r drop_sample}
 
 
 # Read in sample annotations
-samples <- read.csv("../sample_info/lncMYH7b_KD_NG_samplesheet.csv") %>%
-  mutate(lncMYH7b = factor(lncMYH7b))
+samples <- read.csv("../../samplesheet.csv") %>%
+  filter(sample_type == "hiPSCM")
+samples_spoe <- samples %>% 
+  filter(grepl("SP", condition))
+samples_asokd <- samples %>%
+  filter(grepl("ASO", condition))
+rownames(samples_spoe) <- samples_spoe$sample_id
+rownames(samples_asokd) <- samples_asokd$sample_id
 
-rownames(samples) <- samples$SampleID
-
+# Factorize condition variables
+samples_spoe$condition <- factor(samples_spoe$condition,
+                                 levels = c("SP_CTL", "SP_OE"))
+samples_asokd$condition <- factor(samples_asokd$condition,
+                                 levels = c("ASO_CTL", "ASO_KD"))
 
 # Read in the salmon counts data.
-files <- list.files("../results/salmon")
+files <- list.files("../../ipscm_rnaseq/results/salmon")
 
 
-sample_ids <- sapply(files, function(x) {
-  tmp <- unlist(strsplit(x, "_"))[1:2]
-  paste(tmp, collapse = "_")
-  })
+files <- file.path("../../ipscm_rnaseq/results/salmon", samples_spoe$sample_id, "quant.sf")
+names(files) <- samples_spoe$sample_id
+txisalmon_spoe <- tximport(files, type = "salmon", tx2gene = tx2gene)
 
-files <- file.path("../results", "salmon", files, "quant.sf")
-names(files) <- sample_ids
-txi.salmon <- tximport(files, type = "salmon", tx2gene = tx2gene)
+files <- file.path("../../ipscm_rnaseq/results/salmon", samples_asokd$sample_id, "quant.sf")
+names(files) <- samples_asokd$sample_id
+txisalmon_asokd <- tximport(files, type = "salmon", tx2gene = tx2gene)
 
-
-gene_ids_used <- rownames(txi.salmon$counts)
-gtf <- gtf[which(gtf$geneID %in% gene_ids_used)]
+# gene_ids_used <- rownames(txisalmon_spoe$counts)
+# gtf <- gtf[which(gtf$geneID %in% gene_ids_used)]
 gtf <- gtf[which(gtf$type == "gene")]
 ```
 
 ```{r convert_counts}
 # TPM
-tpm <- txi.salmon$abundance
+tpm_spoe <- txisalmon_spoe$abundance
+tpm_asokd <- txisalmon_asokd$abundance
 
 # Export count tables
-write.table(tpm, file = paste0(params$results_dir, "/tpm.txt"), 
+write.table(tpm_spoe, file = "results/tpm_spoe.txt", 
+            sep="\t", row.names=T, col.names=T, quote=F)
+write.table(tpm_asokd, file = "results/tpm_asokd.txt", 
             sep="\t", row.names=T, col.names=T, quote=F)
 ```
 
 
 ```{r create_DESeqDataSet}
 # Create DESeq2 experiment objects.
-rownames(samples)
-samples <- samples[colnames(txi.salmon$counts),]
-stopifnot(all(rownames(samples) == colnames(txi.salmon$counts)))
+samples_spoe <- samples_spoe[colnames(txisalmon_spoe$counts),]
+stopifnot(all(rownames(samples_spoe) == colnames(txisalmon_spoe$counts)))
+
+samples_asokd <- samples_asokd[colnames(txisalmon_asokd$counts),]
+stopifnot(all(rownames(samples_asokd) == colnames(txisalmon_asokd$counts)))
 
 # Let's also make sure the row ranges are in the same order
 names(gtf) <- gtf$geneID
-gtf <- gtf[rownames(txi.salmon$counts)]
-dds <- DESeq2::DESeqDataSetFromTximport(txi.salmon,
-                                        colData   = samples,
-                                        design    = params$design,
+# Temporary fix for exon7skipped being created from an older gencode version.
+# rownames(txisalmon_spoe$counts)[which(!(rownames(txisalmon_spoe$counts) %in% gtf$geneID))] <- "ENSG00000078814.16"
+
+gtf <- gtf[rownames(txisalmon_spoe$counts)]
+dds_spoe <- DESeq2::DESeqDataSetFromTximport(txisalmon_spoe,
+                                        colData   = samples_spoe,
+                                        design    = ~ condition,
+                                        rowRanges = gtf)
+gtf <- gtf[rownames(txisalmon_asokd$counts)]
+dds_asokd <- DESeq2::DESeqDataSetFromTximport(txisalmon_asokd,
+                                        colData   = samples_asokd,
+                                        design    = ~ condition,
                                         rowRanges = gtf)
 ```
 
@@ -120,87 +137,36 @@ While it is not necessary to pre-filter low count genes before running the DESeq
 
 ```{r prefilter}
 # Note that this criteria can be made more stringent
+keep <- rowSums(counts(dds_spoe)) >= 10
+dds_spoe <- dds_spoe[keep, ]
 keep <- rowSums(counts(dds)) >= 10
-dds <- dds[keep, ]
-print(dds)
+dds_asokd <- dds_asokd[keep, ]
+
 ```
 
-
-# Factor reference level
-
-By default, [R][] will choose a reference level for factors based on alphabetical order. Then, if you never tell the [DESeq2][] functions which level you want to compare against (e.g. which level represents the control group), the comparisons will be based on the alphabetical order of the levels. There are two solutions: you can either explicitly tell results which comparison to make using the contrast argument (this will be shown later), or you can explicitly set the factors levels. You should only change the factor levels of variables in the design before running the [DESeq2][] analysis, not during or afterward. Setting the factor levels can be done in two ways, using either the `factor()` or `relevel()` functions. Generally we recommend using `relevel()` here.
-
-```{r relevel, eval=FALSE}
-# Specify the reference level (preferred)
-dds$lncMYH7b <- relevel(dds$lncMYH7b, ref = "ASO_CTL")
-
-# # Alternatively, can explicitly define, using `factor()`
-# # When using this approach, put the reference level (control) first
-# dds$treatment <- factor(dds$treatment, levels = c("control", "folic_acid"))
-
-print(dds$lncMYH7b)
-```
-
-# Differential expression analysis
-
-Now that our `DESeqDataSet` is properly set up, we can move on to performing the differential expression. The standard differential expression analysis steps for [DESeq2][] are wrapped into a single function, `DESeq()`. Results tables are generated using the function `results()`, which extracts a results table with log2 fold changes, *P* values and adjusted *P* values. With no additional arguments to `results()`, the log2 fold change and Wald test *P* value will be for the last variable in the design formula (`design()`), and if this is a factor, the comparison will be the last level of this variable over the reference level (see previous note on factor levels). However, the order of the variables of the design do not matter so long as the user specifies the comparison to build a results table for, using the name or contrast arguments of results.
 
 ```{r deseq}
-dds <- DESeq(dds)
-saveData(dds, dir = params$data_dir)
+dds_spoe <- DESeq(dds_spoe)
+dds_asokd <- DESeq(dds_asokd)
 ```
 
-# Variance stabilization
-
-After we perform the differential expression, we need to calculate variance-stabilized counts, which are stored in a `DESeqTransform` object. These transformed counts are useful for visualization. We currently recommend using `varianceStabilizingTransformation()` but `rlog()` is a good alternate.
 
 ```{r variance_stabilization}
 # Alternatively, can use `rlog()` here, but it is slower
-rld <- varianceStabilizingTransformation(dds)
-interestingGroups(rld) <- "lncMYH7b"
-saveData(rld, dir = params$data_dir)
+rld_spoe <- varianceStabilizingTransformation(dds_spoe)
+interestingGroups(rld_spoe) <- "condition"
+
+rld_asokd <- varianceStabilizingTransformation(dds_asokd)
+interestingGroups(rld_asokd) <- "condition"
 ```
 
-# Results
 
-For contrast argument as character vector:
-
-1. Design matrix factor of interest.
-2. Numerator for LFC (expt).
-3. Denominator for LFC (control).
-
-```{r contrasts}
-# factor; numerator; denominator
-# levels(dds$genotype)
-# help("results", "DESeq2")
-stopifnot(is.list(params$contrasts))
-contrasts <- params$contrasts
-names <- vapply(
-    X = contrasts,
-    FUN = function(x) {
-        paste(x[[1]], x[[2]], "vs", x[[3]], sep = "_")
-
-    },
-    FUN.VALUE = "character"
-)
-names(contrasts) <- names
-print(contrasts)
-```
 
 
 ```{r res_unshrunken}
-res_list_unshrunken <- mapply(
-    FUN = results,
-    contrast = contrasts,
-    MoreArgs = list(
-        object = dds,
-        alpha = params$alpha
-    ),
-    SIMPLIFY = FALSE,
-    USE.NAMES = FALSE
-)
-names(res_list_unshrunken) <- names
-saveData(res_list_unshrunken, dir = params$data_dir)
+res_spoe <- results(dds_spoe) 
+res_asokd <- results(dds_asokd) 
+
 ```
 
 Now let's calculate shrunken log2 fold change values with `DESeq2::lfcShrink()`. We're using the "normal" shrinkage estimator (default in DESeq2); the "apeglm" shrinkage estimator is also promising but doens't work well with complex contrast designs.
@@ -214,28 +180,26 @@ Now let's calculate shrunken log2 fold change values with `DESeq2::lfcShrink()`.
 # help("coef", "DESeq2")
 # help("resultsNames", "DESeq2")
 # This step can be a little slow and sped up with the `parallel` argument.
-res_list_shrunken <- mapply(
-    FUN = lfcShrink,
-    res = res_list_unshrunken,
-    contrast = contrasts,
-    MoreArgs = list(
-        dds = dds,
-        type = "normal"
-    ),
-    SIMPLIFY = FALSE,
-    USE.NAMES = TRUE
-)
-saveData(res_list_shrunken, dir = params$data_dir)
+
+resultsNames(dds_asokd)
+res_shrunken_spoe <- lfcShrink(dds_spoe, coef = "condition_SP_OE_vs_SP_CTL")
+res_shrunken_asokd <- lfcShrink(dds_asokd, coef = "condition_ASO_KD_vs_ASO_CTL")
+```
+
+```{r}
+# export
+
+resdf_spoe <- res_shrunken_spoe %>% as.data.frame() %>%
+  rownames_to_column("geneID") %>%
+  merge(g2s)
+write_csv(resdf_spoe, "results/res_shrunken_spoe.csv")
+resdf_asokd <- res_shrunken_asokd %>% as.data.frame() %>%
+  rownames_to_column("geneID") %>%
+  merge(g2s)
+write_csv(resdf_asokd, "results/res_shrunken_asokd.csv")
 ```
 
 
-Let's save a copy of the prior information used during the shrinkage procedure.
-
-```{r prior_info}
-lapply(res_list_shrunken, priorInfo)
-```
-
-We performed the analysis using a BH adjusted *P* value cutoff of `r params$alpha` and a log fold-change (LFC) ratio cutoff of `r params$lfc_threshold`.
 
 
 # Plots
@@ -247,7 +211,7 @@ Principal Component Analysis (PCA) is a statistical technique used to identify g
 Each point represents an RNA-seq sample. Samples with similar gene expression profiles are closer in the three-dimensional space. If provided, sample groups are indicated using different colors, allowing for easier interpretation of the results.
 
 ```{r plot_deg_pca, message=FALSE}
-plotDEGPCA(res_list_shrunken[[1]], counts = rld, alpha = 0.01, lfcThreshold = 0)
+plotDEGPCA(res, counts = rld, alpha = 0.01, lfcThreshold = 0)
 ```
 
 
@@ -256,26 +220,20 @@ plotDEGPCA(res_list_shrunken[[1]], counts = rld, alpha = 0.01, lfcThreshold = 0)
 This plot shows only differentially expressed genes on a per-sample basis. We have scaled the data by row and used the `ward.D2` method for clustering [@Ward1963-xf].
 
 ```{r plot_deg_heatmap}
-plotDEGHeatmap(res_list_shrunken[[1]], counts = rld, clusteringMethod = "ward.D2", scale = "row", alpha = 0.01)
+plotDEGHeatmap(res, counts = rld, clusteringMethod = "ward.D2", scale = "row", alpha = 0.01, 
+               color = pals::kovesi.diverging_bwr_40_95_c42,
+               legendColor = pals::watlington)
+
+plotMA(res, lfcThreshold = params$lfc_threshold, ntop = 10, gene2symbol = g2s, alpha = 0.01)
+
+exsk <- data.frame("geneID" = "ENSG00000078814.16.1", "geneName" = "MYH7B_exon7_skipped")
+g2s <- bind_rows(g2s, exsk)
+plotVolcano(res, lfcThreshold = params$lfc_threshold, ntop = 10, gene2symbol = g2s, alpha = 0.01,
+            sigPointColor = c(upregulated = "#a8404c", downregulated = "#a8404c"))
 ```
 
-## Gene scatter plots {.tabset .tabset-fade .tabset-pills}
 
-### Mean average (MA)
 
-An MA plot compares transformed counts on `M` (log ratio) and `A` (mean average) scales [@Yang2002-sx].
-
-```{r plot_ma}
-plotMA(res_list_shrunken[[1]], lfcThreshold = params$lfc_threshold, ntop = 10, gene2symbol = g2s, alpha = 0.01)
-```
-
-### Volcano
-
-A volcano plot compares significance (BH-adjusted *P* value) against fold change (log2) [@Cui2003-rn; @Li2014-ll].
-
-```{r plot_volcano}
-plotVolcano(res_list_shrunken[[1]], lfcThreshold = params$lfc_threshold, ntop = 10, gene2symbol = g2s, alpha = 0.01)
-```
 
 ## MYH7b plot
 
@@ -285,13 +243,13 @@ This is the gene we intended to knockdown, so let's just see what this gene look
 
 "ENSG00000078814.15"
 
-gene_name <- "ENSG00000078814.15"
+gene_name <- "ENSG00000078814.16"
 gene_tpm <- tpm[which(row.names(tpm) == gene_name), ] %>%
     as.data.frame() %>% rownames_to_column()
   colnames(gene_tpm) <- c("SampleID", "tpm")
   gene_tpm <- merge(gene_tpm, samples)
 
-g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b))
+g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = condition))
 g + geom_point()  + ggtitle("MYH7B expression")
   
 
@@ -310,10 +268,12 @@ gene_tpm <- tpm[which(row.names(tpm) == gene_name), ] %>%
   colnames(gene_tpm) <- c("SampleID", "tpm")
   gene_tpm <- merge(gene_tpm, samples)
 
-g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = lncMYH7b))
+g <- ggplot(gene_tpm, aes(x = SampleID, y = tpm, color = condition))
 g + geom_point()  + ggtitle("MYH7 expression")
 
 ```
+
+
 ```{r myh6}
 
 "ENSG00000197616.11"

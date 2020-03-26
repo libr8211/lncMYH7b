@@ -15,14 +15,20 @@ params:
 bibliography: bibliography.bib
 ---
 ```{r libraries, echo=FALSE, message=FALSE, warning=FALSE}
-BiocManager::install("RcisTarget")
+# BiocManager::install("RcisTarget")
 
-featherURL <- "https://resources.aertslab.org/cistarget/databases/homo_sapiens/hg19/refseq_r45/mc9nr/gene_based/hg19-tss-centered-10kb-7species.mc9nr.feather" 
-download.file(featherURL, destfile=basename(featherURL))
 
+featherURL <- "https://resources-mirror.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc9nr/gene_based/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
+# wget --no-check-certificate https://resources-mirror.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc9nr/gene_based/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather
+# Old version
+# featherURL <- "https://resources.aertslab.org/cistarget/databases/homo_sapiens/hg19/refseq_r45/mc9nr/gene_based/hg19-tss-centered-10kb-7species.mc9nr.feather" 
+# download.file(featherURL, destfile=basename(featherURL))
+
+
+# BiocManager::install("RcisTarget.hg19.motifDBs.cisbpOnly.500bp")
 suppressPackageStartupMessages({
 library(RcisTarget)
-library(RcisTarget.hg19.motifDBs.cisbpOnly.500bp) 
+# library(RcisTarget.hg38) 
 library(DT)
 library(data.table)
 library(tidyverse)
@@ -42,16 +48,35 @@ This is a sample on how to run the analysis (see the following sections for deta
 ```{r overview, eval=FALSE}
 library(RcisTarget)
 # Load gene sets to analyze. e.g.:
-geneList1 <- read.csv("../results/2019-05-28/differential_expression/geneID_down.csv", header = TRUE)
-geneLists <- list(geneListName=geneList1)
+asokd<- read_csv("../01_ipscm_differential_expression/results/res_shrunken_asokd.csv")
+asokd_genes_down <- asokd %>% filter(padj < 0.01, log2FoldChange < 0)
+asokd_genes_up <- asokd %>% filter(padj < 0.01, log2FoldChange > 0)
+
+spoe <- read_csv("../01_ipscm_differential_expression/results/res_shrunken_spoe.csv")
+
+spoe_genes_down <- spoe %>% filter(padj < 0.01, log2FoldChange < 0)
+spoe_genes_up <- spoe %>% filter(padj < 0.01, log2FoldChange > 0)
+
 # geneLists <- GSEABase::GeneSet(genes, setName="geneListName") # alternative
 # Select motif database to use (i.e. organism and distance around TSS)
 data("motifAnnotations_hgnc")
 motifAnnotations_hgnc <- motifAnnotations_hgnc %>% as.data.table()
-motifRankings <- importRankings("hg19-tss-centered-10kb-7species.mc9nr.feather")
+motifRankings <- importRankings("hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather")
+
 # Motif enrichment analysis:
-motifEnrichmentTable_wGenes <- cisTarget(geneList1, motifRankings,
+asodk_down_motifs <- cisTarget(asokd_genes_down$geneName, motifRankings,
                                motifAnnot=motifAnnotations_hgnc)
+write_csv(asodk_down_motifs, "results/asokd_down_motifs.csv")
+asodk_up_motifs <- cisTarget(asokd_genes_up$geneName, motifRankings,
+                               motifAnnot=motifAnnotations_hgnc)
+write_csv(asodk_up_motifs, "results/asokd_up_motifs.csv")
+
+spoe_down_motifs <- cisTarget(spoe_genes_down$geneName, motifRankings,
+                               motifAnnot=motifAnnotations_hgnc)
+write_csv(spoe_down_motifs, "results/spoe_down_motifs.csv")
+spoe_up_motifs <- cisTarget(spoe_genes_up$geneName, motifRankings,
+                               motifAnnot=motifAnnotations_hgnc)
+write_csv(spoe_up_motifs, "results/spoe_up_motifs.csv")
 
 ```
 

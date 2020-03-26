@@ -1,0 +1,75 @@
+sample_id,sample_type,condition,bio_replicate,fastq1,fastq2
+GFP_1,hiPSCM,SP_CTL,1,../../ipscm_rnaseq/fastq//GFP_1_R1.fastq.gz,../../ipscm_rnaseq/fastq//GFP_1_R2.fastq.gz
+GFP_2,hiPSCM,SP_CTL,2,../../ipscm_rnaseq/fastq//GFP_2_R1.fastq.gz,../../ipscm_rnaseq/fastq//GFP_2_R2.fastq.gz
+M047_1,hiPSCM,ASO_CTL,1,../../ipscm_rnaseq/fastq//M047_1_R1.fastq.gz,../../ipscm_rnaseq/fastq//M047_1_R2.fastq.gz
+M047_3,hiPSCM,ASO_CTL,3,../../ipscm_rnaseq/fastq//M047_3_R1.fastq.gz,../../ipscm_rnaseq/fastq//M047_3_R2.fastq.gz
+M047_4,hiPSCM,ASO_CTL,4,../../ipscm_rnaseq/fastq//M047_4_R1.fastq.gz,../../ipscm_rnaseq/fastq//M047_4_R2.fastq.gz
+M150_2,hiPSCM,ASO_KD,2,../../ipscm_rnaseq/fastq//M150_2_R1.fastq.gz,../../ipscm_rnaseq/fastq//M150_2_R2.fastq.gz
+M150_3,hiPSCM,ASO_KD,3,../../ipscm_rnaseq/fastq//M150_3_R1.fastq.gz,../../ipscm_rnaseq/fastq//M150_3_R2.fastq.gz
+M150_4,hiPSCM,ASO_KD,4,../../ipscm_rnaseq/fastq//M150_4_R1.fastq.gz,../../ipscm_rnaseq/fastq//M150_4_R2.fastq.gz
+SP_1,hiPSCM,SP_OE,1,../../ipscm_rnaseq/fastq//SP_1_R1.fastq.gz,../../ipscm_rnaseq/fastq//SP_1_R2.fastq.gz
+SP_2,hiPSCM,SP_OE,2,../../ipscm_rnaseq/fastq//SP_2_R1.fastq.gz,../../ipscm_rnaseq/fastq//SP_2_R2.fastq.gz
+SRR7426784,heart sample,NF,1,../../human_heart_rnaseq/fastq/SRR7426784.fastq,NA
+SRR7426785,heart sample,NF,2,../../human_heart_rnaseq/fastq/SRR7426785.fastq,NA
+SRR7426786,heart sample,NF,3,../../human_heart_rnaseq/fastq/SRR7426786.fastq,NA
+SRR7426787,heart sample,NF,4,../../human_heart_rnaseq/fastq/SRR7426787.fastq,NA
+SRR7426788,heart sample,NF,5,../../human_heart_rnaseq/fastq/SRR7426788.fastq,NA
+SRR7426789,heart sample,NF,6,../../human_heart_rnaseq/fastq/SRR7426789.fastq,NA
+SRR7426790,heart sample,NF,7,../../human_heart_rnaseq/fastq/SRR7426790.fastq,NA
+SRR7426791,heart sample,NF,8,../../human_heart_rnaseq/fastq/SRR7426791.fastq,NA
+SRR7426792,heart sample,NF,9,../../human_heart_rnaseq/fastq/SRR7426792.fastq,NA
+SRR7426793,heart sample,NF,10,../../human_heart_rnaseq/fastq/SRR7426793.fastq,NA
+SRR7426794,heart sample,NF,11,../../human_heart_rnaseq/fastq/SRR7426794.fastq,NA
+SRR7426795,heart sample,NF,12,../../human_heart_rnaseq/fastq/SRR7426795.fastq,NA
+SRR7426796,heart sample,NF,13,../../human_heart_rnaseq/fastq/SRR7426796.fastq,NA
+SRR7426797,heart sample,NF,14,../../human_heart_rnaseq/fastq/SRR7426797.fastq,NA
+SRR7426798,heart sample,DCM,1,../../human_heart_rnaseq/fastq/SRR7426798.fastq,NA
+SRR7426799,heart sample,DCM,2,../../human_heart_rnaseq/fastq/SRR7426799.fastq,NA
+SRR7426800,heart sample,DCM,3,../../human_heart_rnaseq/fastq/SRR7426800.fastq,NA
+SRR7426801,heart sample,DCM,4,../../human_heart_rnaseq/fastq/SRR7426801.fastq,NA
+SRR7426802,heart sample,DCM,5,../../human_heart_rnaseq/fastq/SRR7426802.fastq,NA
+SRR7426803,heart sample,DCM,6,../../human_heart_rnaseq/fastq/SRR7426803.fastq,NA
+SRR7426804,heart sample,DCM,7,../../human_heart_rnaseq/fastq/SRR7426804.fastq,NA
+SRR7426805,heart sample,DCM,8,../../human_heart_rnaseq/fastq/SRR7426805.fastq,NA
+SRR7426806,heart sample,DCM,9,../../human_heart_rnaseq/fastq/SRR7426806.fastq,NA
+SRR7426807,heart sample,DCM,10,../../human_heart_rnaseq/fastq/SRR7426807.fastq,NA
+SRR7426808,heart sample,DCM,11,../../human_heart_rnaseq/fastq/SRR7426808.fastq,NA
+SRR7426809,heart sample,DCM,12,../../human_heart_rnaseq/fastq/SRR7426809.fastq,NA
+SRR7426810,heart sample,DCM,13,../../human_heart_rnaseq/fastq/SRR7426810.fastq,NA
+SRR7426811,heart sample,DCM,14,../../human_heart_rnaseq/fastq/SRR7426811.fastq,NA
+SRR7426812,heart sample,DCM,15,../../human_heart_rnaseq/fastq/SRR7426812.fastq,NA
+SRR7426813,heart sample,DCM,16,../../human_heart_rnaseq/fastq/SRR7426813.fastq,NA
+SRR7426814,heart sample,DCM,17,../../human_heart_rnaseq/fastq/SRR7426814.fastq,NA
+SRR7426815,heart sample,DCM,18,../../human_heart_rnaseq/fastq/SRR7426815.fastq,NA
+SRR7426816,heart sample,DCM,19,../../human_heart_rnaseq/fastq/SRR7426816.fastq,NA
+SRR7426817,heart sample,DCM,20,../../human_heart_rnaseq/fastq/SRR7426817.fastq,NA
+SRR7426818,heart sample,DCM,21,../../human_heart_rnaseq/fastq/SRR7426818.fastq,NA
+SRR7426819,heart sample,DCM,22,../../human_heart_rnaseq/fastq/SRR7426819.fastq,NA
+SRR7426820,heart sample,DCM,23,../../human_heart_rnaseq/fastq/SRR7426820.fastq,NA
+SRR7426821,heart sample,DCM,24,../../human_heart_rnaseq/fastq/SRR7426821.fastq,NA
+SRR7426822,heart sample,DCM,25,../../human_heart_rnaseq/fastq/SRR7426822.fastq,NA
+SRR7426823,heart sample,DCM,26,../../human_heart_rnaseq/fastq/SRR7426823.fastq,NA
+SRR7426824,heart sample,DCM,27,../../human_heart_rnaseq/fastq/SRR7426824.fastq,NA
+SRR7426825,heart sample,DCM,28,../../human_heart_rnaseq/fastq/SRR7426825.fastq,NA
+SRR7426826,heart sample,DCM,29,../../human_heart_rnaseq/fastq/SRR7426826.fastq,NA
+SRR7426827,heart sample,DCM,30,../../human_heart_rnaseq/fastq/SRR7426827.fastq,NA
+SRR7426828,heart sample,DCM,31,../../human_heart_rnaseq/fastq/SRR7426828.fastq,NA
+SRR7426829,heart sample,DCM,32,../../human_heart_rnaseq/fastq/SRR7426829.fastq,NA
+SRR7426830,heart sample,DCM,33,../../human_heart_rnaseq/fastq/SRR7426830.fastq,NA
+SRR7426831,heart sample,DCM,34,../../human_heart_rnaseq/fastq/SRR7426831.fastq,NA
+SRR7426832,heart sample,DCM,35,../../human_heart_rnaseq/fastq/SRR7426832.fastq,NA
+SRR7426833,heart sample,DCM,36,../../human_heart_rnaseq/fastq/SRR7426833.fastq,NA
+SRR7426834,heart sample,DCM,37,../../human_heart_rnaseq/fastq/SRR7426834.fastq,NA
+SRR7426835,heart sample,ICM,1,../../human_heart_rnaseq/fastq/SRR7426835.fastq,NA
+SRR7426836,heart sample,ICM,2,../../human_heart_rnaseq/fastq/SRR7426836.fastq,NA
+SRR7426837,heart sample,ICM,3,../../human_heart_rnaseq/fastq/SRR7426837.fastq,NA
+SRR7426838,heart sample,ICM,4,../../human_heart_rnaseq/fastq/SRR7426838.fastq,NA
+SRR7426839,heart sample,ICM,5,../../human_heart_rnaseq/fastq/SRR7426839.fastq,NA
+SRR7426840,heart sample,ICM,6,../../human_heart_rnaseq/fastq/SRR7426840.fastq,NA
+SRR7426841,heart sample,ICM,7,../../human_heart_rnaseq/fastq/SRR7426841.fastq,NA
+SRR7426842,heart sample,ICM,8,../../human_heart_rnaseq/fastq/SRR7426842.fastq,NA
+SRR7426843,heart sample,ICM,9,../../human_heart_rnaseq/fastq/SRR7426843.fastq,NA
+SRR7426844,heart sample,ICM,10,../../human_heart_rnaseq/fastq/SRR7426844.fastq,NA
+SRR7426845,heart sample,ICM,11,../../human_heart_rnaseq/fastq/SRR7426845.fastq,NA
+SRR7426846,heart sample,ICM,12,../../human_heart_rnaseq/fastq/SRR7426846.fastq,NA
+SRR7426847,heart sample,ICM,13,../../human_heart_rnaseq/fastq/SRR7426847.fastq,NA

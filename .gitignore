@@ -5,3 +5,8 @@
 *results*
 *.out
 *.err
+.Rproj.user
+*.Rproj
+*.Rhistory
+*.tbl
+*.feather
