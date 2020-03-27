@@ -8,8 +8,8 @@ library(tidyverse)
 # Within the tidyverse you use read_csv to read in your data. Note that it will have to be saved as a .csv, not an excel file, so you'll have to "Save As" in Excel to get a .csv format.
 # This step reads in your data as data frames, called 'data1' and 'data2'
 
-data1 <- read_csv("../../ipscm_rnaseq/results/res_shrunken_spoe.csv")
-data2 <- read_csv("../../ipscm_rnaseq/results/res_shrunken_asokd.csv")
+data1 <- read_csv("../../ipscm_rnaseq/results/DEG_spoe.csv")
+data2 <- read_csv("../../ipscm_rnaseq/results/DEG_asokd.csv")
 
 # Now you should see that "data1" and "data2" pop up in your "environment" in the top right corner of RStudio. If you click on them, they'll pop up and you can look at them like they're regular tables, except in R, which I'm sure you've done before. Yay!
 
@@ -22,4 +22,4 @@ data2 <- read_csv("../../ipscm_rnaseq/results/res_shrunken_asokd.csv")
 data3 <- inner_join(data1, data2, by = "geneID")
 
 # Note that line will store your new data as data3, so you'll need to call it to see it, or click on it. If you want to export it, you can write it as a csv...
-write_csv(data3, "new_name_new_data.csv")
+write_csv(data3, "spoe_asokd_overlap.csv")
