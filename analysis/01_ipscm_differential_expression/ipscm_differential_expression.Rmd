@@ -316,7 +316,7 @@ Subset the results into separate tables, containing all genes, differentially ex
 ```{r results_tables, results="asis"}
 # Here we're creating subset tables of the DEGs, and adding the normalized
 # counts used by DESeq2 for the differential expression analysis.
-mdout_spoe <- capture.output(res_spoe <- mapply(
+mdout_spoe <- capture.output(res_tbl_list <- mapply(
     FUN = resultsTables,
     results = res_shrunken_spoe,
     MoreArgs = list(
