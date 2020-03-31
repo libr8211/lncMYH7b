@@ -17,6 +17,9 @@ library(DESeq2)
 library(pheatmap)
 library(grDevices)
 library(ggrepel)
+library(venneuler)
+library(ggforce)
+library(ggpubr)
 
 source("../../util/_util.R")
 source("../../util/_plotting.R")
@@ -413,4 +416,90 @@ ggsave(paste0("figures/asokd_", gene_name, "_tpm.pdf"))
 ggsave(paste0("figures/asokd_", gene_name, "_tpm.png"))
 ```
 
+### Overlap between experiments
+
+
+```{r venn}
+# Let's look at the overlaps between these two experiments in terms of differentially expressed genes.
+resdf_asokd$experiment <- "asokd"
+resdf_spoe$experiment <- "spoe"
+res_combined <- bind_rows(resdf_asokd, resdf_spoe)
+sig_combined <- res_combined %>% filter(padj < 0.01)
+sig_combined$deg <- 1
+sig_gene_matrix <- sig_combined %>% dplyr::select(geneID, experiment, deg) %>%
+  pivot_wider(names_from = experiment, values_from = deg, values_fill = list(deg = 0)) %>%
+  column_to_rownames("geneID") %>%
+  as.matrix()
+
+
+y <- venneuler(sig_gene_matrix)
+venn_df <- data.frame(y$centers, diameters = y$diameters, labels = y$labels, stringsAsFactors = FALSE) %>%
+  mutate(r = diameters/2)
+
+# Calculate numeric values and add to plot
+spoe_deg <- length(which(sig_gene_matrix[,"spoe"] == 1))
+asokd_deg <- length(which(sig_gene_matrix[,"asokd"] == 1))
+shared_deg <- length(which(sig_gene_matrix[,"asokd"] == 1 & sig_gene_matrix[,"spoe"] == 1))
+asokd_unique <- asokd_deg - shared_deg
+spoe_unique <- spoe_deg - shared_deg
+
+venn_info <- data.frame("name" = c("spoe_deg", "asokd_deg", "shared_deg", "asokd_unique", "spoe_unique"),
+                        "value" = c(paste0("n = ", spoe_deg),
+                                    paste0("n = ", asokd_deg),
+                                    shared_deg,
+                                    aso_kd_unique,
+                                    spoe_unique),
+                        x = c(0.1,  1, 0.46,  0.726, 0.274),
+                        y = c(0.74, 0.78, 0.5,  0.45, 0.45))
+
+
+# Fix labels
+venn_df[which(venn_df$labels == "asokd"), "labels"] <- "ASO KD"
+venn_df[which(venn_df$labels == "spoe"), "labels"] <- "SP OE"
+
+g <- ggplot(venn_df)
+g + geom_circle(aes(x0 = x, y0 = y, r = r, fill=labels), alpha = .6, size = 0.3, color = "#212121") +
+        geom_text(aes(x = x, y = y, label = labels), size = 7, color = "#212121") +
+  coord_fixed() +
+  scale_fill_manual(values = c("#424242","#a8404c")) + 
+  theme_no_axes() +
+  theme(legend.position = "none") +
+  geom_text(data = venn_info, aes(x = x, y = y, label = value), color = "#212121") + 
+  ggtitle("DEG: SP OE vs ASO KD", subtitle = "padj < 0.01")
+ggsave("figures/ipscm_venn.png")
+ggsave("figures/ipscm_venn.pdf")
+```
+
+```{r}
+# Fold change correlation between experiments
+res_combined_wide <- res_combined %>%
+  dplyr::select(geneID, geneName, log2FoldChange, padj, experiment) %>%
+  pivot_wider(id_cols = c("geneID", "geneName"), names_from = experiment,
+              values_from = c("log2FoldChange", "padj")) %>%
+  mutate(sig_asokd = padj_asokd < 0.01,
+         sig_spoe = padj_spoe < 0.01,
+         sig_both = sig_asokd & sig_spoe)
+# Label points
+res_combined_wide$sig <- "NS"
+res_combined_wide[which(res_combined_wide$sig_asokd), "sig"] <- "DE in ASO KD"
+res_combined_wide[which(res_combined_wide$sig_spoe), "sig"] <- "DE in SP OE"
+res_combined_wide[which(res_combined_wide$sig_both), "sig"] <- "DE in both"
+res_combined_wide$sig <- factor(res_combined_wide$sig, levels = c("NS", "DE in ASO KD", "DE in SP OE", "DE in both"))
+
+
+# NOTE: This is using shrunken log2FoldChanges from DESeq2.
+g <- ggplot(res_combined_wide, aes(x = log2FoldChange_asokd, y = log2FoldChange_spoe, color = sig))
+g + geom_hline(color = "#212121", yintercept = 0, lty = 2) + 
+  geom_vline(color = "#212121", xintercept = 0, lty = 2) +
+  scale_color_manual(values = c("#424242","#71969F","#8B1D3B", "#DD1822"), name = "padj < 0.01") +
+  geom_point(alpha = 0.7) + 
+  theme_paperwhite() + 
+  stat_cor() + 
+  ggtitle("IPSCM: ASO KD vs SP OE")
+ggsave("figures/ipscm_scatter.png")
+ggsave("figures/ipscm_scatter.pdf")
+
+# Let's export this handy table
+write_csv(res_combined_wide, "results/ipscm_shrunken_lfc_compared.csv")
+```
 
