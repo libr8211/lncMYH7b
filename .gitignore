@@ -10,3 +10,5 @@
 *.Rhistory
 *.tbl
 *.feather
+*figures*
+*.html
