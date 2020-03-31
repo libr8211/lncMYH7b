@@ -447,7 +447,7 @@ venn_info <- data.frame("name" = c("spoe_deg", "asokd_deg", "shared_deg", "asokd
                         "value" = c(paste0("n = ", spoe_deg),
                                     paste0("n = ", asokd_deg),
                                     shared_deg,
-                                    aso_kd_unique,
+                                    asokd_unique,
                                     spoe_unique),
                         x = c(0.1,  1, 0.46,  0.726, 0.274),
                         y = c(0.74, 0.78, 0.5,  0.45, 0.45))
