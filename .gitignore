@@ -10,3 +10,6 @@
 *.Rhistory
 *.tbl
 *.feather
+*figures*
+*.html
+*_files*
