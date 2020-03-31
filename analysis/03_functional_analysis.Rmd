@@ -8,7 +8,7 @@ params:
   # DESeqResults object
   dds_file: !r file.path("../data", Sys.Date(), "dds.rda")
   res_file: !r file.path("../data", Sys.Date(), "res_list_shrunken.rda")
-  organism: "Mus musculus"
+  organism: "Homo sapiens"
   go_class: "BP"
   lfc_threshold: 0.5
   data_dir: !r file.path("../data", Sys.Date())
