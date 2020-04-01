@@ -1,0 +1,38 @@
+---
+title: "MYH7 promoter motifs"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+options(stringsAsFactors = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(biomartr)
+library(biomaRt)
+library(GenomicRanges)
+```
+
+## Retrieve MYH7 promoter motif matches from Ensembl
+
+The Ensembl Regulatory Build seems to be one of the easiest / best resources for matched motifs in the human genome. I beleive that they also have information on bound proteins from ChIP-seq tracks -- which is awesome. Here we aim to do an analysis of the MYH7 promoter region to see which TFs could be linking MYH7b expression levels to MYH7 mRNA expression. 
+
+```{r}
+# Retrieve motif matches for MYH7
+
+# Let's use the annotation we've been using
+gtf <- rtracklayer::import("../../util/gencode.v33.annotation.gtf")
+genes <- gtf[which(gtf$type == "gene")]
+
+myh7 <- genes[which(genes$gene_name == "MYH7")]
+myh7_promoter <- promoters(myh7)
+
+biomartr::getMarts()
+biomaRt::listMarts()
+
+# Okay, so the biomart is unresponsive, so I'm downloading the JASPAR dataset from 
+# UCSC. It's a bit big.. so I'm going to set this aside while it downloads.
+# wget http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/JASPAR2020_hg38.bb
+```
+
