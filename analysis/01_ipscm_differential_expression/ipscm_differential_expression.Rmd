@@ -138,8 +138,8 @@ dds_asokd <- dds_asokd[keep, ]
 dds_spoe <- DESeq(dds_spoe)
 dds_asokd <- DESeq(dds_asokd)
 
-save(dds_spoe, file = "results/dds_spoe.Rdata")
-save(dds_asokd, file = "results/dds_asokd.Rdata")
+saveRDS(dds_spoe, file = "results/dds_spoe.rds")
+saveRDS(dds_asokd, file = "results/dds_asokd.rds")
 ```
 
 ```{r res_unshrunken}

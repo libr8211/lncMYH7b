@@ -1,34 +1,11 @@
 ---
-title: "Functional Analysis: lncMYH7b Knockdown RNA-seq in iPSCMs, Novogene"
-author: "`r getOption('author')`"
-date: "`r Sys.Date()`"
-bibliography: bibliography.bib
-params:
-  # DESeqDataSet object
-  # DESeqResults object
-  dds_file: !r file.path("../data", Sys.Date(), "dds.rda")
-  res_file: !r file.path("../data", Sys.Date(), "res_list_shrunken.rda")
-  organism: "Mus musculus"
-  go_class: "BP"
-  lfc_threshold: 0.5
-  data_dir: !r file.path("../data", Sys.Date())
-  results_dir: !r file.path("../results", Sys.Date(), "functional_analysis")
+title: "Functional Analysis: lncMYH7b Knockdown RNA-seq in iPSCMs, Novogene"  
 editor_options: 
   chunk_output_type: console
 ---
 
-<style type="text/css">
-.main-container {
-  max-width: 1800px !important;
-  margin-left: auto;
-  margin-right: auto;
-}
-</style>
-
 ```{r setup, message=FALSE}
-# Last modified 2018-08-19
-bcbioRNASeq::prepareRNASeqTemplate()
-source("_setup.R")
+options(stringsAsFactors = TRUE)
 
 # Additional required packages =================================================
 # KEGG supported organisms
@@ -37,199 +14,137 @@ source("_setup.R")
 # OrgDb supported organisms
 # http://bioconductor.org/packages/release/BiocViews.html#___OrgDb
 
-# OrgDb package (e.g. "org.Mm.eg.db")
-match <- str_match(
-    string = params$organism,
-    pattern = "^([A-Z])[a-z]+\\s([a-z])[a-z]+$"
-)
-org_db <- paste(
-    "org",
-    paste(match[, 2:3], collapse = ""),
-    "eg",
-    "db",
-    sep = "."
-)
-rm(match)
+library(clusterProfiler)
+library(DOSE)
+library(pathview)
+library(org.Hs.eg.db)
+library(tidyverse)
+org_db <- "org.Hs.eg.db"
 
-packages <- c(
-    "clusterProfiler",
-    "DOSE",
-    "pathview",
-    org_db
-)
-print(packages)
+```
 
-invisible(lapply(
-    X = basename(packages),
-    FUN = function(package) {
-        # Use `BiocInstaller::biocLite()` to install missing packages
-        stopifnot(require(package, character.only = TRUE))
-    }
-))
 
-# Require Bioconductor 3.7 package versions
-stopifnot(packageVersion("clusterProfiler") >= 3.8)
-stopifnot(packageVersion("DOSE") >= 3.6)
-stopifnot(packageVersion("pathview") >= 1.20)
+```{r}
+dds_spoe <- readRDS("../01_ipscm_differential_expression/results/dds_spoe.rds")
+dds_asokd <- readRDS("../01_ipscm_differential_expression/results/dds_asokd.rds")
 
-# Directory paths ==============================================================
-kegg_plots_dir <- file.path(params$results_dir, "kegg_plots")
-invisible(mapply(
-    FUN = dir.create,
-    path = c(params$data_dir, params$results_dir, kegg_plots_dir),
-    MoreArgs = list(showWarnings = FALSE, recursive = TRUE)
-))
+# Let's add in the Enembl gene IDs.
+ens2eg <- as.list(org.Hs.egENSEMBL2EG)
 
-# Load objects =================================================================
-dds_name <- load("../analysis/01_ipscm_differential_expression/results/dds_spoe.Rdata")
-dds <- get(dds_name, inherits = FALSE)
-stopifnot(is(dds, "DESeqDataSet"))
-invisible(validObject(dds))
-# Require `entrezID` mappings column in `rowData()`.
-
-ensemblids<- unlist(lapply(as.character(rownames(rowData(dds))), 
+ensemblids<- unlist(lapply(as.character(rownames(rowData(dds_spoe))), 
                            function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]] }))
+rowData(dds_spoe)$entrezID <- ens2eg[match(ensemblids, names(ens2eg))]
 
-xx <- as.list(org.Mm.egENSEMBL2EG)
-rowData(dds)$entrezID <- xx[match(ensemblids, names(xx))]
-stopifnot(is(rowData(dds)$entrezID, "list"))
-print(dds)
-
-res_name <- load(params$res_file)
-res <- get(res_name, inherits = FALSE)
-res <- res[[1]]
-stopifnot(is(res, "DESeqResults"))
-invisible(validObject(res))
-summary(res)
-
-# Ensure that DESeqDataSet and DESeqResults are matched
-stopifnot(identical(rownames(dds), rownames(res)))
+ensemblids<- unlist(lapply(as.character(rownames(rowData(dds_asokd))), 
+                           function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]] }))
+rowData(dds_asokd)$entrezID <- ens2eg[match(ensemblids, names(ens2eg))]
 
 
 
 
-# KEGG organism code (e.g. "mmu" for Mus musculus)
-kegg_code <- params$organism %>%
-    search_kegg_organism("scientific_name") %>%
-    pull("kegg_code")
-stopifnot(length(kegg_code) == 1)
-stopifnot(grepl("^[a-z]{3}$", kegg_code))
+kegg_code <- "hsa"
 
 # Check for valid GO class
 # BP: Biological Process
 # CC: Cellular Component
 # MF: Molecular Function
-stopifnot(params$go_class %in% c("BP", "CC", "MF"))
+go_classes <- c("BP", "CC", "MF")
 ```
 
-```{r header, child="_header.Rmd"}
-```
 
 ```{r results}
-alpha <- metadata(res)$alpha
+padj_thresh <- 0.01
+l2fc_thresh <- 0
 
-# Subset NA adjusted P values
-message("Dropping genes without an adjusted P value")
-res <- res[!is.na(res$padj), , drop = FALSE]
-res_df <- as.data.frame(res)
-# Match the DESeqDataSet
-dds <- dds[rownames(res), ]
+res_spoe <- DESeq2::results(dds_spoe) 
+res_spoe_df <- res_spoe %>%
+  as.data.frame() %>%
+  rownames_to_column("gene_id") %>%
+  filter(!is.na(padj))
+res_asokd <- DESeq2::results(dds_asokd) 
+res_asokd_df <- res_asokd %>%
+  as.data.frame() %>%
+  rownames_to_column("gene_id") %>%
+  filter(!is.na(padj))
 
 # Use the all_genes vector for background (aka universe)
-all_genes <- rownames(res)
-all_genes <- sapply(all_genes, function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]]})
-names(all_genes) <- NULL
+all_genes_spoe <- sapply(rownames(res_spoe), function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]]})
+names(all_genes_spoe) <- NULL
 
+all_genes_asokd <- sapply(rownames(res_asokd), function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]]})
+names(all_genes_asokd) <- NULL
 
 # help("significants", "DEGreport")
-sig_genes <- significants(
-    object = res,
-    fc = params$lfc_threshold,
-    padj = alpha
-)
-sig_genes <- sapply(sig_genes, function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]]})
-names(sig_genes) <- NULL
+sig_spoe_df <- res_spoe_df %>% 
+  filter(padj < padj_thresh, abs(log2FoldChange) > l2fc_thresh)
+sig_asokd_df <- res_asokd_df %>%
+  filter(padj < padj_thresh, abs(log2FoldChange) > l2fc_thresh)
 
-length(all_genes)
-length(sig_genes)
+sig_genes_spoe <- sapply(sig_spoe_df$gene_id, function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]]})
+names(sig_genes_spoe) <- NULL
+sig_genes_asokd <- sapply(sig_asokd_df$gene_id, function(x) { unlist(base::strsplit(x, ".", fixed = T))[[1]]})
+names(sig_genes_asokd) <- NULL
 
-sig_res_df <- res_df %>%
-    .[sig_genes, , drop = FALSE] %>%
-    .[order(.$padj), , drop = FALSE]
-
-lfc_vec <- sig_res_df$log2FoldChange
-names(lfc_vec) <- rownames(sig_res_df)
+lfc_vec_spoe <- sig_spoe_df$log2FoldChange
+lfc_vec_asokd <- sig_asokd_df$log2FoldChange
+names(lfc_vec_spoe) <- sig_spoe_df$gene_id
+names(lfc_vec_asokd) <- sig_asokd_df$gene_id
 # Sort from upregulated to downregulated
-lfc_vec <- sort(lfc_vec, decreasing = TRUE)
-summary(lfc_vec)
+lfc_vec_spoe <- sort(lfc_vec_spoe, decreasing = TRUE)
+lfc_vec_asokd <- sort(lfc_vec_asokd, decreasing = TRUE)
 ```
 
-# GO enrichment analysis
-
-[Gene Ontology (GO)][GO] term enrichment is a technique for interpreting sets of genes making use of the [Gene Ontology][GO] system of classification, in which genes are assigned to a set of predefined bins depending on their functional characteristics.
+## GO enrichment analysis
 
 ```{r enrich_go}
-enrich_go <- enrichGO(
-    gene = sig_genes,
-    OrgDb = org_db,
-    keyType = "ENSEMBL",
-    ont = params$go_class,
-    universe = all_genes,
-    qvalueCutoff = 1,
-    readable = TRUE,
-    minGSSize = 4
-)
-print(enrich_go)
-enrich_go_tbl <- enrich_go %>%
-    slot("result") %>%
-    as_tibble() %>%
-    camel()
-saveData(enrich_go, enrich_go_tbl, dir = params$data_dir)
-write_csv(
-    enrich_go_tbl,
-    path = file.path(
-        params$results_dir,
-        paste0(
-            paste(
-                "go",
-                tolower(params$go_class),
-                "clusterprofiler",
-                "padj",
-                alpha,
-                "lfc",
-                params$lfc_threshold,
-                sep = "_"
-            ),
-            ".csv.gz"
-        )
-    )
-)
-enrich_go_tbl
-```
+# This will be a lot of duplicated code, so let's do this in a loop
+experiments <- c("spoe", "asokd")
+sig_genes <- list("spoe" = sig_genes_spoe, "asokd" = sig_genes_asokd)
+all_genes <- list("spoe" = all_genes_spoe, "asokd" = all_genes_asokd)
 
-## Dot plot
-
-```{r dotplot}
-dotplot(enrich_go, showCategory = 25)
-```
-
-## GO terms map
-
-```{r emapplot}
-if(length(which(enrich_go@result$qvalue < 0.05)) > 0) {
-  emapplot(enrich_go, showCategory = 25)
-}
-```
-
-## Gene map
-
-In order to consider the potentially biological complexities in which a gene may belong to multiple annotation categories, and provide information of numeric changes if available.
-
-Here we are plotting genes colored by LFC for top 5 most significant [GO][] terms.
-
-```{r cnetplot}
-if(length(which(enrich_go@result$qvalue < 0.05)) > 0) {
-  cnetplot(enrich_go, foldChange = lfc_vec)
+for(i in 1:length(experiments)) {
+  for(j in 1:length(go_classes)) {
+    
+    enrich_go <- enrichGO(gene = sig_genes[experiments[i]], 
+                          OrgDb = org_db,
+                          keyType = "ENSEMBL",
+                          ont = go_classes[j],
+                          universe = all_genes[experiments[i]],
+                          qvalueCutoff = 0.05,
+                          readable = TRUE,
+                          minGSSize = 4)
+    enrich_go_tbl <- enrich_go@result %>%
+      as.tibble()
+    
+    write_csv(enrich_go_tbl, 
+              path = file.path("results",
+                               paste0(paste(experiments[i], "go", go_classes[j], 
+                                            "clusterprofiler", "padj", padj_thresh,
+                                            "lfc", l2fc_thresh, sep = "_"), ".csv")))
+    enrich_go_tbl
+    
+    dp <- dotplot(enrich_go, showCategory = 25) +
+      ggtitle(paste0(go_classes[j], ": ", experiments[i]))
+    show(dp)
+    ggsave(paste0("figures/", experiments[i],"_go", go_classes[j], "_dotplot.png"))
+    ggsave(paste0("figures/", experiments[i],"_go", go_classes[j], "_dotplot.pdf"))
+    
+    if(length(which(enrich_go@result$qvalue < 0.05)) > 0) {
+      em <- emapplot(enrich_go, showCategory = 25) +
+        ggtitle(paste0(go_classes[1], ": ", experiments[i]))
+      show(em)
+      ggsave(paste0("figures/", experiments[i],"_go", go_classes[j], "_emapplot.png"))
+      ggsave(paste0("figures/", experiments[i],"_go", go_classes[j], "_emapplot.pdf"))
+    }
+    
+    if(length(which(enrich_go@result$qvalue < 0.05)) > 0) {
+      cn <- cnetplot(enrich_go, foldChange = lfc_vec_spoe) + 
+        ggtitle(paste0(go_classes[1], ": ", experiments[i]))
+      show(cn)
+      ggsave(paste0("figures/", experiments[i],"_go", go_classes[j], "_cnetplot.png"))
+      ggsave(paste0("figures/", experiments[i],"_go", go_classes[j], "_cnetplot.pdf"))
+    }
+  }
 }
 ```
 
