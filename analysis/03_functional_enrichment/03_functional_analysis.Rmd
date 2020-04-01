@@ -119,11 +119,11 @@ all_genes <- list("spoe" = all_genes_spoe, "asokd" = all_genes_asokd)
 for(i in 1:length(experiments)) {
   for(j in 1:length(go_classes)) {
     
-    enrich_go <- enrichGO(gene = sig_genes[experiments[i]], 
+    enrich_go <- enrichGO(gene = sig_genes[[experiments[i]]], 
                           OrgDb = org_db,
                           keyType = "ENSEMBL",
                           ont = go_classes[j],
-                          universe = all_genes[experiments[i]],
+                          universe = all_genes[[experiments[i]]],
                           qvalueCutoff = 1,
                           readable = TRUE,
                           minGSSize = 4)
