@@ -12,4 +12,5 @@
 *.feather
 *figures*
 *.html
+*.xlsx
 *_files*

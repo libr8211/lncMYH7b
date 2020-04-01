@@ -1,83 +1,80 @@
 ---
-title: 'Functional Analysis: lncMYH7b Knockdown RNA-seq in iPSCMs, Novogene'
-author: "`r getOption('author')`"
-date: "`r Sys.Date()`"
+title: 'TF Motif Enrichment Analysis'
 editor_options:
   chunk_output_type: console
-params:
-  data_dir: !r file.path("../data", Sys.Date())
-  dds_file: !r file.path("../data", Sys.Date(), "dds.rda")
-  go_class: BP
-  lfc_threshold: 0.5
-  organism: Homo sapiens
-  res_file: !r file.path("../data", Sys.Date(), "res_list_shrunken.rda")
-  results_dir: !r file.path("../results", Sys.Date(), "TF_analysis")
-bibliography: bibliography.bib
 ---
-```{r libraries, echo=FALSE, message=FALSE, warning=FALSE}
-# BiocManager::install("RcisTarget")
 
 
-featherURL <- "https://resources-mirror.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc9nr/gene_based/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# featherURL <- "https://resources-mirror.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc9nr/gene_based/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
 # wget --no-check-certificate https://resources-mirror.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc9nr/gene_based/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather
-# Old version
-# featherURL <- "https://resources.aertslab.org/cistarget/databases/homo_sapiens/hg19/refseq_r45/mc9nr/gene_based/hg19-tss-centered-10kb-7species.mc9nr.feather" 
-# download.file(featherURL, destfile=basename(featherURL))
 
 
-# BiocManager::install("RcisTarget.hg19.motifDBs.cisbpOnly.500bp")
-suppressPackageStartupMessages({
+
+# library(DT)
+# library(zoo)
 library(RcisTarget)
-# library(RcisTarget.hg38) 
-library(DT)
 library(data.table)
 library(tidyverse)
-library(zoo)
-#require(visNetwork)
-})
+setDTthreads(threads = 12)
+library(visNetwork)
 ```
 
-If you use RcisTarget in your research, please cite: 
-#```{r citation, echo=FALSE}
-print(citation("RcisTarget")[1], style="textVersion")
-#```
+```{r import, eval=FALSE}
+padj_thresh <- 0.01
+l2fc_thresh <- 0
 
-# Overview of the workflow
-The function `cisTarget()` allows to perform the motif-enrichment analysis on a gene list. The main input parameters are the gene list and the motif databases, which should be chosen depending on the organism and the search space around the TSS of the genes.
-This is a sample on how to run the analysis (see the following sections for details):
-```{r overview, eval=FALSE}
-library(RcisTarget)
-# Load gene sets to analyze. e.g.:
-asokd<- read_csv("../01_ipscm_differential_expression/results/res_shrunken_asokd.csv")
-asokd_genes_down <- asokd %>% filter(padj < 0.01, log2FoldChange < 0)
-asokd_genes_up <- asokd %>% filter(padj < 0.01, log2FoldChange > 0)
+# Load gene sets to analyze
+asokd <- read_csv("../01_ipscm_differential_expression/results/res_shrunken_asokd.csv")
+asokd_genes_down <- asokd %>% filter(padj < padj_thresh, log2FoldChange < l2fc_thresh)
+asokd_genes_up <- asokd %>% filter(padj < padj_thresh, log2FoldChange > l2fc_thresh)
 
 spoe <- read_csv("../01_ipscm_differential_expression/results/res_shrunken_spoe.csv")
+spoe_genes_down <- spoe %>% filter(padj < padj_thresh, log2FoldChange < l2fc_thresh)
+spoe_genes_up <- spoe %>% filter(padj < padj_thresh, log2FoldChange > l2fc_thresh)
 
-spoe_genes_down <- spoe %>% filter(padj < 0.01, log2FoldChange < 0)
-spoe_genes_up <- spoe %>% filter(padj < 0.01, log2FoldChange > 0)
+asokd$experiment <- "asokd"
+spoe$experiment <- "spoe"
+deg_all <- bind_rows(asokd, spoe) %>% filter(padj < padj_thresh, abs(log2FoldChange) > l2fc_thresh) 
+deg_all$direction <- "up"
+deg_all[which(deg_all$log2FoldChange < 0),"direction"] <- "down"
 
-# geneLists <- GSEABase::GeneSet(genes, setName="geneListName") # alternative
-# Select motif database to use (i.e. organism and distance around TSS)
+
+# Import the relevant Rcistarget files
+
+# featherURL <- "https://resources-mirror.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc9nr/gene_based/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather"
+# wget --no-check-certificate https://resources-mirror.aertslab.org/cistarget/databases/homo_sapiens/hg38/refseq_r80/mc9nr/gene_based/hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather
+
 data("motifAnnotations_hgnc")
 motifAnnotations_hgnc <- motifAnnotations_hgnc %>% as.data.table()
 motifRankings <- importRankings("hg38__refseq-r80__10kb_up_and_down_tss.mc9nr.feather")
+```
 
-# Motif enrichment analysis:
-asodk_down_motifs <- cisTarget(asokd_genes_down$geneName, motifRankings,
+
+```{r motif_enrichment}
+# Motif enrichment analysis
+# Adding MYH7 because it is a low pval (not below the threshold) and it is a gene of interest.
+asokd_down_motifs <- cisTarget(c(asokd_genes_down$geneName, "MHY7"), 
+                               motifRankings,
+                               motifAnnot = motifAnnotations_hgnc)
+asokd_down_motifs$geneSet <- "asokd_down"
+
+asokd_up_motifs <- cisTarget(asokd_genes_up$geneName, motifRankings,
                                motifAnnot=motifAnnotations_hgnc)
-write_csv(asodk_down_motifs, "results/asokd_down_motifs.csv")
-asodk_up_motifs <- cisTarget(asokd_genes_up$geneName, motifRankings,
-                               motifAnnot=motifAnnotations_hgnc)
-write_csv(asodk_up_motifs, "results/asokd_up_motifs.csv")
+asokd_up_motifs$geneSet <- "asokd_up"
 
 spoe_down_motifs <- cisTarget(spoe_genes_down$geneName, motifRankings,
                                motifAnnot=motifAnnotations_hgnc)
-write_csv(spoe_down_motifs, "results/spoe_down_motifs.csv")
+spoe_down_motifs$geneSet <- "spoe_down"
+
 spoe_up_motifs <- cisTarget(spoe_genes_up$geneName, motifRankings,
                                motifAnnot=motifAnnotations_hgnc)
-write_csv(spoe_up_motifs, "results/spoe_up_motifs.csv")
+spoe_up_motifs$geneSet <- "spoe_up"
 
+# Combine and export
+motifs_enriched <- bind_rows(asokd_down_motifs, asokd_up_motifs, spoe_down_motifs, spoe_up_motifs)
+motifs_enriched <- addLogo(motifs_enriched)
+write_csv(motifs_enriched, "results/ipscm_enriched_motifs.csv")
 ```
 
 
@@ -98,38 +95,126 @@ The final output of RcisTarget is a `data.table` containing the information abou
 * rankAtMax: Ranking at the maximum enrichment, used to determine the number of enriched genes.
 
 
-```{r output}
-motifEnrichmentTable_wGenes_wLogo <- addLogo(motifEnrichmentTable_wGenes)
-resultsSubset <- motifEnrichmentTable_wGenes_wLogo[1:10,]
-library(DT)
-datatable(resultsSubset[,-c("enrichedGenes", "TF_lowConf"), with=FALSE], 
-          escape = FALSE, # To show the logo
-          filter="top", options=list(pageLength=5))
+## TFs differentially expressed
+
+```{r}
+# Pulling data from: https://www.sciencedirect.com/science/article/pii/S0092867418301065?via%3Dihub#app2
+# wget https://ars.els-cdn.com/content/image/1-s2.0-S0092867418301065-mmc2.xlsx
+human_tfs <- readxl::read_excel("1-s2.0-S0092867418301065-mmc2.xlsx", sheet = 2, skip = 1)
+names(human_tfs)[4] <- "is_tf"
+table(human_tfs$is_tf)
+human_tfs <- human_tfs %>% filter(is_tf == "Yes")
+
+deg_tfs <- deg_all[which(tolower(deg_all$geneName) %in% tolower(human_tfs$Name)),]
+
+
+enriched_tfs_highconf <- motifs_enriched %>% dplyr::select(geneSet, motif, TF_highConf) %>%
+  separate_rows(TF_highConf, sep = ";") %>%
+  separate_rows(TF_highConf, sep = "\\.")
+names(enriched_tfs_highconf)[3] <- "tf_name"
+enriched_tfs_lowconf <- motifs_enriched %>% dplyr::select(geneSet, motif, TF_lowConf) %>%
+  separate_rows(TF_lowConf, sep = ";") %>%
+  separate_rows(TF_lowConf, sep = "\\.")
+names(enriched_tfs_lowconf)[3] <- "tf_name"
+
+
+enriched_tfs <- bind_rows(enriched_tfs_highconf, enriched_tfs_lowconf) %>%
+  mutate(tf_name = str_replace(tf_name, " \\(.*\\)", ""),
+         tf_name = str_remove(tf_name, " ")) %>%
+  filter(tf_name != "")
+  
+## Out of curiosity, let's see how many of these are in the "Human TFs" list
+# Total enriched TFs from Rcistarget
+length(unique(enriched_tfs$tf_name))
+# Total matching in TF list
+length(which(tolower(unique(enriched_tfs$tf_name)) %in% tolower(human_tfs$Name)))
+# Total not found in TF list
+length(which(!(tolower(unique(enriched_tfs$tf_name)) %in% tolower(human_tfs$Name))))
+# I wonder if these were labeled as "Not TFs" by the human tfs authors...
+missing_tfs <- unique(enriched_tfs$tf_name)[which(!(tolower(unique(enriched_tfs$tf_name)) %in% tolower(human_tfs$Name)))]
+
+whole_list_human_tfs <- readxl::read_excel("1-s2.0-S0092867418301065-mmc2.xlsx", sheet = 2, skip = 1)
+names(whole_list_human_tfs)[4] <- "is_tf"
+missing_in_whole_list <- whole_list_human_tfs[which(tolower(whole_list_human_tfs$Name) %in% tolower(missing_tfs)),]
+nrow(missing_in_whole_list)
+table(missing_in_whole_list$is_tf)
+# Well 27 of the 53 missing were labeled as not TFs by the authors... Interesting. And messy!
+
+
+# Okay, well let's merge this in to see which TFs are changing and also have a motif enriched in the DEGs.
+enriched_tfs <- enriched_tfs %>% 
+  separate(geneSet, into = c("experiment", "direction_enriched"), sep = "_", remove = F)
+names(enriched_tfs)[c(1,5)] <- c("geneSet_enriched_in", "geneName")
+enriched_deg_tfs <- merge(deg_tfs, enriched_tfs, all.x = T) %>%
+  filter(!is.na(motif))
+# So this is a cool list. There are duplicates if there were multiple motifs enriched
+# that implicated that TF.
+
+# Let's see how many are going in the same / different direction as their putative targets
+enriched_deg_tfs_summary <- enriched_deg_tfs %>% dplyr::select(geneName, experiment, direction, direction_enriched) %>%
+  distinct() %>%
+  group_by(experiment, direction, direction_enriched) %>%
+  summarize(count = n(),
+            tfs = paste(geneName, collapse = ";")) %>%
+  arrange(experiment, direction_enriched)
+
 ```
 
 
-# Follow up examples
+```{r}
+# Let's see if MYH7 or MHY6 are among the targets of any of these TFs.
+putative_target_genes <- motifs_enriched %>%
+  dplyr::select(geneSet, motif, enrichedGenes) %>%
+  separate_rows(enrichedGenes, sep = ";")
+myh_targets <- putative_target_genes[grep("MYH", putative_target_genes$enrichedGenes),]
 
-## TFs annotated to the enriched motifs
-Note that the TFs are provided based on the motif annotation. They can be used as a guide to select relevant motifs or to prioritize some TFs, but the motif annotation does not imply that all the TFs appearing in the table regulate the gene list.
+# Let's pull out an adjacency list of TFs and their targets.
+tf_target_high <- motifs_enriched %>% 
+  dplyr::select(geneSet, motif, TF_highConf, enrichedGenes) %>%
+  separate_rows(TF_highConf, sep = ";") %>%
+  separate_rows(TF_highConf, sep = "\\.") %>%
+  mutate(TF_highConf = str_replace(TF_highConf, " \\(.*\\)", ""),
+         TF_highConf = str_remove(TF_highConf, " ")) %>%
+  filter(TF_highConf != "") %>%
+  separate_rows(enrichedGenes, sep = ";")
+names(tf_target_high)[3] <- "tf"
 
-```{r anotatedTfs, cache=TRUE}
-anotatedTfs <- lapply(split(motifEnrichmentTable_wGenes$TF_highConf,
-                            motifEnrichmentTable$geneSet),
-                      function(x) {
-                        genes <- gsub(" \\(.*\\). ", "; ", x, fixed=FALSE)
-                        genesSplit <- unique(unlist(strsplit(genes, "; ")))
-                        return(genesSplit)
-                        })
-                      
-anotatedTfs$hypoxia
+tf_target_low <- motifs_enriched %>% 
+  dplyr::select(geneSet, motif, TF_lowConf, enrichedGenes) %>%
+  separate_rows(TF_lowConf, sep = ";") %>%
+  separate_rows(TF_lowConf, sep = "\\.") %>%
+  mutate(TF_lowConf = str_replace(TF_lowConf, " \\(.*\\)", ""),
+         TF_lowConf = str_remove(TF_lowConf, " ")) %>%
+  filter(TF_lowConf != "") %>%
+  separate_rows(enrichedGenes, sep = ";")
+names(tf_target_low)[3] <- "tf"
+
+tf_target <- bind_rows(tf_target_high, tf_target_low)
+names(tf_target)[4] <- "target_gene"
+
+# https://github.com/jhkorhonen/MOODS
+# http://grch37.ensembl.org/info/docs/api/funcgen/regulation_tutorial.html
+# https://cran.r-project.org/web/packages/biomartr/vignettes/Functional_Annotation.html
+
+# MHY7 won't be in this list because it misses the pval cutoff padj ~ 0.07
+# So let's get all the targets of the enriched tfs regardless of whether they are in the DEG list of not.
+# Let's start with just TEAD..
+motif_name <- "hocomoco__TEAD4_HUMAN.H11MO.0.A"
+motif_list <- motifRankings@rankings[,"features"]
+motif_list$index <- 1:nrow(motif_list)
+
+myh7_motif_ranks <- motifRankings@rankings[,which(colnames(motifRankings@rankings) == "MYH7")]
+names(myh7_motif_ranks) <- "index"
+myh7_motif_ranks$rank <- 1:nrow(myh7_motif_ranks)
+
+hmm <- merge(myh7_motif_ranks, motif_list)
 ```
 
-## Building a network
+
 
 ```{r network, cache=FALSE, eval=FALSE}
-signifMotifNames <- motifEnrichmentTable$motif[1:3]
-incidenceMatrix <- getSignificantGenes(geneLists$hypoxia, 
+signifMotifNames <- c(motifs_enriched$motif[1:3],"hocomoco__TEAD4_HUMAN.H11MO.0.A")
+incidenceMatrix <- getSignificantGenes(asokd_genes_down$geneName, 
                                        motifRankings,
                                        signifRankingNames=signifMotifNames,
                                        plotCurve=TRUE, maxRank=5000-20, 
@@ -141,9 +226,8 @@ edges <- edges[which(edges[,3]==1),1:2]
 colnames(edges) <- c("from","to")
 ```
 
-*Output not shown:*
 ```{r visNetwork, eval=FALSE}
-library(visNetwork)
+
 motifs <- unique(as.character(edges[,1]))
 genes <- unique(as.character(edges[,2]))
 nodes <- data.frame(id=c(motifs, genes),   
@@ -155,11 +239,4 @@ visNetwork(nodes, edges) %>% visOptions(highlightNearest = TRUE,
                                         nodesIdSelection = TRUE)
 ```
 
-
-# sessionInfo()
-This is the output of `sessionInfo()` on the system on which this document was compiled:
-```{r}
-date()
-sessionInfo()
-```
 
