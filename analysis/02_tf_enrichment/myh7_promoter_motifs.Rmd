@@ -12,6 +12,9 @@ library(tidyverse)
 library(biomartr)
 library(biomaRt)
 library(GenomicRanges)
+
+require(RCurl) 
+library(XML)
 ```
 
 ## Retrieve MYH7 promoter motif matches from Ensembl
@@ -20,13 +23,82 @@ The Ensembl Regulatory Build seems to be one of the easiest / best resources for
 
 ```{r}
 # Retrieve motif matches for MYH7
-
 # Let's use the annotation we've been using
 gtf <- rtracklayer::import("../../util/gencode.v33.annotation.gtf")
 genes <- gtf[which(gtf$type == "gene")]
 
 myh7 <- genes[which(genes$gene_name == "MYH7")]
-myh7_promoter <- promoters(myh7)
+myh7_promoter <- promoters(myh7, upstream = 3e3, downstream = 3e3)
+```
+
+```{r}
+result <- getURL("http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/")
+
+motif_match_files <- data.frame("base_url" = "http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/",
+                                "file" = getHTMLLinks(result)) %>%
+  filter(grepl(".tsv.gz", file)) %>%
+  mutate(full_url = paste0(base_url, file)) %>%
+  dplyr::select(full_url) %>%
+  write_csv("motif_match_files.csv", col_names = FALSE)
+# run /data/JASPAR2020_hg38/download_JASPAR.sh
+library(data.table)
+setDTthreads(12)
+myh7_motif_matches <- data.table(chr = character(),
+                                 start = integer(),
+                                 end = integer(),
+                                 tf = character(), 
+                                 rel_score = integer(),
+                                 neg_log10pval100 = integer(),
+                                 strand = character())
+motif_files <- list.files("data/JASPAR2020_hg38/", full.names = T, pattern = ".tsv.gz")
+for(i in 1:2) {
+  temp_motifs <- fread(motif_files[i], sep = "\t",
+                       col.names = c("chr", "start", "end", "tf", "rel_score", 
+                                     "neg_log10pval100", "strand"),
+                       colClasses = c(character(), integer(), integer(), 
+                                      character(), integer(), integer(), character()))
+  myh7_motif_matches <- rbindlist(list(myh7_motif_matches, 
+                                  temp_motifs[chr == "chr14" & 
+                                                end > start(myh7_promoter@ranges) & 
+                                                start < end(myh7_promoter@ranges)]))
+}
+
+
+
+plotRanges <- function(x, xlim=x, main=deparse(substitute(x)), col="black", sep=0.5, ...) { 
+  height <- 1
+  if (is(xlim, "IntegerRanges"))
+    xlim <- c(min(start(xlim)), max(end(xlim)))
+  bins <- disjointBins(IRanges(start(x), end(x) + 1))
+  plot.new()
+  plot.window(xlim, c(0, max(bins)*(height + sep)))
+  ybottom <- bins * (sep + height) - height
+  rect(start(x)-0.5, ybottom, end(x)+0.5, ybottom + height, col=col, ...)
+  title(main)
+  axis(1)
+}
+?disjointBins
+ir <- IRanges(start = myh7_motif_matches$start, myh7_motif_matches$end)
+plotRanges(ir)
+
+
+library(ggbio)
+
+
+gr <- GenomicRanges::GRanges(seqnames = myh7_motif_matches$chr,
+                             ranges = IRanges(start = myh7_motif_matches$start,
+                                              end = myh7_motif_matches$end),
+                             strand = myh7_motif_matches$strand,
+                             names = myh7_motif_matches$tf)
+gr@elementMetadata
+?GRanges
+autoplot(gr, names.expr = "names")
+```
+
+
+```{r}
+
+
 
 biomartr::getMarts()
 biomaRt::listMarts()
@@ -34,5 +106,22 @@ biomaRt::listMarts()
 # Okay, so the biomart is unresponsive, so I'm downloading the JASPAR dataset from 
 # UCSC. It's a bit big.. so I'm going to set this aside while it downloads.
 # wget http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/JASPAR2020_hg38.bb
+
+library(rtracklayer)
+
+devtools::install_github("skgrange/threadr")
+library(threadr)
+
+list_files_ftp("http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/")
+# http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/MA0002.2.tsv.gz
+
+
+
+
+http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/
+myh7_promoter@ranges
+bigwrig::read_bigwig("data/JASPAR2020_hg38.bb", chrom = "chr14", start = 23432661L, end = 23438660L)
+rtracklayer::import.bw("data/JASPAR2020_hg38.bb", selection = BigWigSelection(ranges = myh7_promoter@ranges))
+?BigWigSelection
 ```
 
