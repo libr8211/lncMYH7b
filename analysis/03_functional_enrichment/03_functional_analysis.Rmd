@@ -128,7 +128,7 @@ for(i in 1:length(experiments)) {
                           readable = TRUE,
                           minGSSize = 4)
     enrich_go_tbl <- enrich_go@result %>%
-      as.tibble()
+      as_tibble()
     
     write_csv(enrich_go_tbl, 
               path = file.path("results",
