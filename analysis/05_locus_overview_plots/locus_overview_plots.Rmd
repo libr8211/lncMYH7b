@@ -1,0 +1,200 @@
+---
+title: "Locus Overview Plots"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(stringsAsFactors = FALSE)
+library(ggbio)
+library(GenomicAlignments)
+library(GenomicFeatures)
+library(AnnotationFilter)
+library(biovizBase)
+source("../util/_plot_theme.R")
+```
+
+```{r}
+# Read in human heart RNA-seq bamfiles
+bam_files <- read.table("bamfiles.tsv",
+                        col.names = c("accession",
+                                      "file",
+                                      "condition"))
+bam_files_per_condition <- split(bam_files$file,
+                                 bam_files$condition)
+
+# Read in annotation objects
+gencode_gr <- rtracklayer::import("../../util/gencode.v33.annotation.gtf")
+gencode_txdb <- makeTxDbFromGRanges(gencode_gr)
+
+# Subset to MYH7B objects
+myh7b_all <- gencode_gr[which(gencode_gr$gene_name == "MYH7B")]
+myh7b_g <- myh7b_all[which(myh7b_all$type == "gene")]
+myh7b_t_all <- myh7b_all[which(myh7b_all$transcript_id == "ENST00000262873.12")]
+myh7b_t <- myh7b_t_all[which(myh7b_t_all$type == "transcript")]
+```
+
+```{r}
+# Set seed for reproducibility of random sampling.
+set.seed(122)
+sampled_files <- lapply(bam_files_per_condition, sample, size = 1)
+sampled_files
+myh7b_reads <- lapply(sampled_files, 
+                      readGAlignments, 
+                      param = ScanBamParam(which = myh7b_t),
+                      use.names = TRUE)
+
+plot_reads <- function(reads, xlim_gr) {
+  # Plotting function from ggbio for GenomicAlignments objects
+  autoplot(nf_reads, geom = "area", stat = "coverage") + 
+    xlim(xlim_gr) + 
+    scale_y_continuous(expand = c(0,0)) + 
+    scale_x_continuous(expand = c(0,0)) +
+    theme_paperwhite() +
+    theme(panel.border = element_blank(),
+          axis.text.x=element_blank(),
+          axis.title.y=element_blank(),
+          axis.line = element_line(color = "black"),
+          axis.ticks.x=element_blank()) 
+}
+
+
+myh7b_coverage_plots <- lapply(myh7b_reads, plot_reads, xlim_gr = myh7b_t)
+```
+
+
+
+```{r}
+
+# Prepare transcript model
+myh7b_transcript <- crunch(gencode_txdb, which = myh7b_gene)
+colnames(values(myh7b_transcript))[4] <- "model"
+myh7b_transcript <- split(myh7b_transcript, myh7b_transcript$tx_id)
+# Pull out just the transcript that we'd like to use
+myh7b_transcript <- myh7b_transcript["207750"]
+
+# Plot the transcript model
+myh7b_transcript_plot <- autoplot(myh7b_transcript, 
+                                  aes(type = model), 
+                                  label = FALSE) + theme_paperwhite() +
+  theme(panel.border = element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank()) +
+  scale_y_continuous(expand = c(0,0)) + 
+  scale_x_continuous(expand = c(0,0)) 
+
+# Prepare ideogram 
+ideo_plot <- plotIdeogram(genome = "hg38", which = myh7b_t)
+
+```
+
+
+```{r}
+# Put it all together.
+
+tracks(ideo_plot,
+       NF = myh7_coverage_plots[["NF"]], 
+       DCM = myh7_coverage_plots[["DCM"]], 
+       ICM = myh7_coverage_plots[["ICM"]], 
+       MYH7B = myh7b_transcript_plot, 
+       heights = c(1, 2, 2, 2, 0.6),
+       label.bg.fill = "#ffffff",
+       label.bg.color = "#ffffff") 
+ggsave("figures/MYH7B_whole_gene_tracks.tiff", height = 5, width = 10)
+
+?ggsave
+```
+
+```{r}
+# Let's figure out which exon we need to plot
+show(myh7b_transcript_plot)
+myh7b_exons <- myh7b_t_all[which(myh7b_t_all$type == "exon")]
+myh7b_exons_df <- myh7b_exons %>% as.data.frame()
+# I think it's exon 8
+myh7b_exons_df[8,]
+myh7b_skipped_exon <- myh7b_exons[which(myh7b_exons$exon_id == "ENSE00000860157.1")]
+# Let's add some padding on either side 100 bp either side
+myh7b_se_padded <- resize(myh7b_skipped_exon, width = width(myh7b_skipped_exon)+50*2, fix = "center")
+myh7b_7_padded <- resize(myh7b_exons[7], width = width(myh7b_skipped_exon)+50*2, fix = "center")
+myh7b_9_padded <- resize(myh7b_exons[9], width = width(myh7b_skipped_exon)+50*2, fix = "center")
+# Actually, let's add in the flanking exon coverage
+```
+
+
+```{r}
+library(tidyverse)
+
+retrieve_coverage_df <- function(bam_file, region_gr) {
+  reads <- readGAlignments(bam_file,
+                           param = ScanBamParam(which = region_gr),
+                           use.names = TRUE)
+  cov <- coverage(reads)
+  cov <- as(cov, "GRanges")
+  cov <- subsetByOverlaps(cov, region_gr)
+  cov <- as.data.frame(cov)
+  for(i in 1:nrow(cov)) {
+    cov$position[i] <- paste(cov$start[i]:cov$end[i], collapse = ";")
+  }
+  cov <- cov %>% 
+    dplyr::select(score, position) %>%
+    separate_rows(position, sep = ";") %>%
+    filter(position >= start(region_gr),
+           position <= end(region_gr))
+  cov$position <- as.numeric(cov$position)
+  cov$file <- bam_file
+  return(cov)
+}
+
+exon8 <- lapply(bam_files$file, 
+                       retrieve_coverage_df, 
+                       region_gr = myh7b_se_padded) %>%
+  bind_rows()
+exon8$exon <- "Exon 8"
+
+exon7 <- lapply(bam_files$file, 
+                retrieve_coverage_df, 
+                region_gr = myh7b_7_padded) %>%
+  bind_rows()
+exon7$exon <- "Exon 7"
+exon9 <- lapply(bam_files$file, 
+                retrieve_coverage_df, 
+                region_gr = myh7b_9_padded) %>%
+  bind_rows()
+exon9$exon <- "Exon 9"
+
+
+coverage_df <- bind_rows(exon7, exon8, exon9)
+
+# merge in the sample info 
+coverage_df <- merge(coverage_df, bam_files)
+
+
+exon_boundaries <- data.frame("exon" = c("Exon 7", "Exon 7", 
+                                         "Exon 8", "Exon 8", 
+                                         "Exon 9", "Exon 9"),
+                              "position" = c(start(myh7b_exons[7]),
+                                             end(myh7b_exons[7]),
+                                              start(myh7b_exons[8]),
+                                             end(myh7b_exons[8]),
+                                             start(myh7b_exons[9]),
+                                             end(myh7b_exons[9])))
+
+g <- ggplot(coverage_df, aes(x = position, y = score, group = file))
+g + geom_area(alpha = 0.1, position = "identity") + 
+  geom_line() + facet_grid(condition~exon, scales = "free_x") + 
+  # geom_vline(xintercept = start(myh7b_exons[8])) +
+  # geom_vline(xintercept = end(myh7b_exons[8])) + 
+  theme_paperwhite() + 
+  geom_vline(data = exon_boundaries, aes(xintercept = position), lty = 2) + 
+  ylab("Coverage") + 
+  xlab("") +
+  scale_y_continuous(expand = c(0,0)) + 
+  scale_x_continuous(expand = c(0,0))
+
+ggsave("figures/exons_7-9_all_human_samples.pdf", height = 4.5, width = 6)
+```
+
+
