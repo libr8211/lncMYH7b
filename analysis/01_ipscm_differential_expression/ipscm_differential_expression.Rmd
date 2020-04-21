@@ -110,8 +110,6 @@ stopifnot(all(rownames(samples_asokd) == colnames(txisalmon_asokd$counts)))
 
 # Let's also make sure the row ranges are in the same order
 names(gtf) <- gtf$geneID
-# Temporary fix for exon7skipped being created from an older gencode version.
-# rownames(txisalmon_spoe$counts)[which(!(rownames(txisalmon_spoe$counts) %in% gtf$geneID))] <- "ENSG00000078814.16"
 
 gtf <- gtf[rownames(txisalmon_spoe$counts)]
 dds_spoe <- DESeqDataSetFromTximport(txisalmon_spoe,

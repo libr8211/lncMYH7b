@@ -13,6 +13,7 @@ library(GenomicAlignments)
 library(GenomicFeatures)
 library(AnnotationFilter)
 library(biovizBase)
+library(tidyverse)
 source("../util/_plot_theme.R")
 ```
 
@@ -125,7 +126,7 @@ myh7b_9_padded <- resize(myh7b_exons[9], width = width(myh7b_skipped_exon)+50*2,
 
 
 ```{r}
-library(tidyverse)
+
 
 retrieve_coverage_df <- function(bam_file, region_gr) {
   reads <- readGAlignments(bam_file,
