@@ -1,0 +1,123 @@
+---
+title: "MYH7B exon skipped ratio"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+options(stringsAsFactors = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(DESeq2)
+library(tximport)
+source("../util/_plot_theme.R")
+```
+
+```{r import_counts, message=FALSE, warning=FALSE, results='hide'}
+# Read in gencode annotations
+gtf <- rtracklayer::import("../../util/gencode.v33.annotation.gtf")
+
+# Renaming for compatibility with tximport
+# TODO: Do we still need to do this?
+names(gtf@elementMetadata@listData)[which(names(gtf@elementMetadata@listData) == "gene_id")] <-
+  "geneID"
+names(gtf@elementMetadata@listData)[which(names(gtf@elementMetadata@listData) == "gene_name")] <-
+  "geneName"
+names(gtf@elementMetadata@listData)[which(names(gtf@elementMetadata@listData) == "gene_type")] <-
+  "geneBiotype"
+gtf@elementMetadata$id <- gtf@elementMetadata$geneID
+
+genes <- gtf[which(gtf$type == "gene")]
+gtfdf <- gtf %>% as.data.frame()
+g2s <- as.data.frame(gtf@elementMetadata@listData) %>% 
+  dplyr::select(geneID, geneName) %>% 
+  distinct()
+tx2gene <- gtfdf %>%
+  mutate(TXNAME = transcript_id, GENEID = geneID) %>%
+  dplyr::select(TXNAME, GENEID)
+```
+
+```{r}
+samples <- read.csv("../../samplesheet.csv") %>%
+  filter(sample_type == "hiPSCM")
+
+samples_spoe <- samples %>% 
+  filter(grepl("SP", condition))
+samples_asokd <- samples %>%
+  filter(grepl("ASO", condition))
+rownames(samples_spoe) <- samples_spoe$sample_id
+rownames(samples_asokd) <- samples_asokd$sample_id
+
+samples_spoe$condition <- factor(samples_spoe$condition,
+                                 levels = c("SP_CTL", "SP_OE"))
+samples_asokd$condition <- factor(samples_asokd$condition,
+                                 levels = c("ASO_CTL", "ASO_KD"))
+
+files <- file.path("../../ipscm_rnaseq/results/salmon", samples_spoe$sample_id, "quant.sf")
+names(files) <- samples_spoe$sample_id
+txisalmon_spoe <- tximport(files, type = "salmon", tx2gene = tx2gene, txOut = TRUE)
+
+files <- file.path("../../ipscm_rnaseq/results/salmon", samples_asokd$sample_id, "quant.sf")
+names(files) <- samples_asokd$sample_id
+txisalmon_asokd <- tximport(files, type = "salmon", tx2gene = tx2gene, txOut = TRUE)
+
+```
+
+```{r}
+
+tpm_asokd <- txisalmon_asokd$abundance %>%
+  as.data.frame() %>%
+  rownames_to_column("transcript_id")
+write_csv(tpm_asokd, "../../ipscm_rnaseq/results/transcript_tpm.csv")
+
+
+
+tpm_spoe <- txisalmon_spoe$abundance %>%
+  as.data.frame() %>%
+  rownames_to_column("transcript_id")
+write_csv(tpm_spoe, "../../ipscm_rnaseq/results/transcript_tpm.csv")
+```
+
+```{r}
+myh7b_gene_id <- g2s[grep("MYH7B", g2s$geneName),"geneID"]
+myh7b_transcript_ids <- unique(tx2gene[grep(myh7b_gene_id, tx2gene$GENEID), "TXNAME"])
+exon_skipped_transcript <- "ENST00000262873.12_exon_8_skipped"
+non_exon_skipped <- "ENST00000262873.12"
+grep("exon", tpm_asokd$transcript_id)
+
+
+myh7b_tpm_asokd <- tpm_asokd[tpm_asokd$transcript_id %in% myh7b_transcript_ids, ] %>%
+  pivot_longer(cols = 2:ncol(.), 
+               names_to = "run_accession", 
+               values_to = "tpm") %>%
+  merge(samples)
+```
+
+```{r}
+# let's make a plot!
+g <- ggplot(myh7b_tpm_asokd, aes(x = transcript_id, y = log2(tpm)))
+g + geom_point() + 
+  theme_paperwhite()
+
+# Main transcript
+myh7b_tpm_asokd <- tpm_asokd[tpm_asokd$transcript_id %in% c(exon_skipped_transcript, non_exon_skipped), ] %>%
+  pivot_longer(cols = 2:ncol(.), 
+               names_to = "run_accession", 
+               values_to = "tpm") %>%
+  merge(samples)
+
+myh7b_tpm_asokd$transcript_id <- factor(myh7b_tpm_asokd$transcript_id, levels = c("ENST00000262873.12_exon_8_skipped", "ENST00000262873.12"),
+                                        labels = c("lncMYH7B", "MYH7B"))
+g <- ggplot(myh7b_tpm_asokd, aes(x = transcript_id, y = tpm))
+g + geom_boxplot() + 
+  theme_paperwhite() + geom_jitter(color = "#a8404c") + 
+  ggtitle("ASO KD: MYH7B vs lncMYH7B") + 
+  xlab("") +
+  ylab("TPM")
+ggsave("figures/aso_kd_myh7b_vs_lncmyh7b.pdf", height = 5, width = 2)
+```
+
+
+
+
