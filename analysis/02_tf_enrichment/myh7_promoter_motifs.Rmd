@@ -83,7 +83,7 @@ binding_site_summary <- binding_sites %>% group_by(tf_name) %>%
 
 Let's make a plot of the top binding sites at the promoter. 
 
-```{r binding-site-count}
+```{r binding-site-count, message=FALSE, warning=FALSE}
 g <- ggplot(binding_site_summary %>% dplyr::slice(1:10), aes(x = tf_name, y = count))
 g + geom_bar(stat = "identity") + 
   theme_paperwhite() +
@@ -92,9 +92,9 @@ g + geom_bar(stat = "identity") +
         axis.line = element_line(colour = "black")) + 
   xlab("TF") +
   ylab("Num motif matches") +
-  ggtitle("MYH7B promoter motif matches")
-ggsave("figures/myh7b_promoter_motif_matches.png")
-ggsave("figures/myh7b_promoter_motif_matches.pdf")
+  ggtitle("MYH7 promoter motif matches")
+ggsave("figures/myh7_promoter_motif_matches.png")
+ggsave("figures/myh7_promoter_motif_matches.pdf")
 ```
 
 
