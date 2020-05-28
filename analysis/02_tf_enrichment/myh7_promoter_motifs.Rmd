@@ -15,13 +15,14 @@ library(GenomicRanges)
 
 require(RCurl) 
 library(XML)
+source("../util/_plot_theme.R")
 ```
 
 ## Retrieve MYH7 promoter motif matches from Ensembl
 
 The Ensembl Regulatory Build seems to be one of the easiest / best resources for matched motifs in the human genome. I beleive that they also have information on bound proteins from ChIP-seq tracks -- which is awesome. Here we aim to do an analysis of the MYH7 promoter region to see which TFs could be linking MYH7b expression levels to MYH7 mRNA expression. 
 
-```{r}
+```{r import-annotation}
 # Retrieve motif matches for MYH7
 # Let's use the annotation we've been using
 gtf <- rtracklayer::import("../../util/gencode.v33.annotation.gtf")
@@ -31,97 +32,69 @@ myh7 <- genes[which(genes$gene_name == "MYH7")]
 myh7_promoter <- promoters(myh7, upstream = 3e3, downstream = 3e3)
 ```
 
-```{r}
-result <- getURL("http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/")
+So we'll just grab the promoter region +/-3kb for MYH7B from the motif feature Ensembl track using the biomart webservice. 
 
-motif_match_files <- data.frame("base_url" = "http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/",
-                                "file" = getHTMLLinks(result)) %>%
-  filter(grepl(".tsv.gz", file)) %>%
-  mutate(full_url = paste0(base_url, file)) %>%
-  dplyr::select(full_url) %>%
-  write_csv("motif_match_files.csv", col_names = FALSE)
-# run /data/JASPAR2020_hg38/download_JASPAR.sh
-library(data.table)
-setDTthreads(12)
-myh7_motif_matches <- data.table(chr = character(),
-                                 start = integer(),
-                                 end = integer(),
-                                 tf = character(), 
-                                 rel_score = integer(),
-                                 neg_log10pval100 = integer(),
-                                 strand = character())
-motif_files <- list.files("data/JASPAR2020_hg38/", full.names = T, pattern = ".tsv.gz")
-for(i in 1:2) {
-  temp_motifs <- fread(motif_files[i], sep = "\t",
-                       col.names = c("chr", "start", "end", "tf", "rel_score", 
-                                     "neg_log10pval100", "strand"),
-                       colClasses = c(character(), integer(), integer(), 
-                                      character(), integer(), integer(), character()))
-  myh7_motif_matches <- rbindlist(list(myh7_motif_matches, 
-                                  temp_motifs[chr == "chr14" & 
-                                                end > start(myh7_promoter@ranges) & 
-                                                start < end(myh7_promoter@ranges)]))
-}
-
-
-
-plotRanges <- function(x, xlim=x, main=deparse(substitute(x)), col="black", sep=0.5, ...) { 
-  height <- 1
-  if (is(xlim, "IntegerRanges"))
-    xlim <- c(min(start(xlim)), max(end(xlim)))
-  bins <- disjointBins(IRanges(start(x), end(x) + 1))
-  plot.new()
-  plot.window(xlim, c(0, max(bins)*(height + sep)))
-  ybottom <- bins * (sep + height) - height
-  rect(start(x)-0.5, ybottom, end(x)+0.5, ybottom + height, col=col, ...)
-  title(main)
-  axis(1)
-}
-?disjointBins
-ir <- IRanges(start = myh7_motif_matches$start, myh7_motif_matches$end)
-plotRanges(ir)
-
-
-library(ggbio)
-
-
-gr <- GenomicRanges::GRanges(seqnames = myh7_motif_matches$chr,
-                             ranges = IRanges(start = myh7_motif_matches$start,
-                                              end = myh7_motif_matches$end),
-                             strand = myh7_motif_matches$strand,
-                             names = myh7_motif_matches$tf)
-gr@elementMetadata
-?GRanges
-autoplot(gr, names.expr = "names")
+```{bash retreive-motif-matches}
+cd data
+wget -O result.txt 'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?> 
+<!DOCTYPE Query>
+<Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" >
+			
+	<Dataset name = "hsapiens_motif_feature" interface = "default" >
+		<Filter name = "chromosome_name" value = "14"/>
+		<Filter name = "start" value = "23432661"/>
+		<Filter name = "end" value = "23438660"/>
+		<Attribute name = "binding_matrix_id" />
+		<Attribute name = "chromosome_name" />
+		<Attribute name = "chromosome_start" />
+		<Attribute name = "chromosome_end" />
+		<Attribute name = "score" />
+		<Attribute name = "feature_type_name" />
+		<Attribute name = "display_label" />
+	</Dataset>
+</Query>'
 ```
 
+What does the double colon mean in the ensembl regulatory build?
 
-```{r}
+I’m going to assume for now that the two TFs separated by double colons means that the TFs both have a motif that corresponds to the match rather than that they need to be jointly bound.
 
+```{r summarize-binding-sites}
+binding_sites <- read.table("data/result.txt",
+                            col.names = c("motif_id",
+                                          "chr",
+                                          "start",
+                                          "end", 
+                                          "score",
+                                          "tf_name",
+                                          "match_id"))
 
-
-biomartr::getMarts()
-biomaRt::listMarts()
-
-# Okay, so the biomart is unresponsive, so I'm downloading the JASPAR dataset from 
-# UCSC. It's a bit big.. so I'm going to set this aside while it downloads.
-# wget http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/JASPAR2020_hg38.bb
-
-library(rtracklayer)
-
-devtools::install_github("skgrange/threadr")
-library(threadr)
-
-list_files_ftp("http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/")
-# http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/MA0002.2.tsv.gz
+# Split the motifs that correspond to two transcription factors.
+binding_sites <- binding_sites %>% 
+  separate_rows("tf_name", sep = "::")
 
 
 
-
-http://expdata.cmmt.ubc.ca/JASPAR/downloads/UCSC_tracks/2020/hg38/
-myh7_promoter@ranges
-bigwrig::read_bigwig("data/JASPAR2020_hg38.bb", chrom = "chr14", start = 23432661L, end = 23438660L)
-rtracklayer::import.bw("data/JASPAR2020_hg38.bb", selection = BigWigSelection(ranges = myh7_promoter@ranges))
-?BigWigSelection
+binding_site_summary <- binding_sites %>% group_by(tf_name) %>%
+  summarize(count = n()) %>%
+  arrange(-count) %>%
+  mutate(tf_name = factor(tf_name, levels = tf_name))
 ```
+
+Let's make a plot of the top binding sites at the promoter. 
+
+```{r binding-site-count}
+g <- ggplot(binding_site_summary %>% dplyr::slice(1:10), aes(x = tf_name, y = count))
+g + geom_bar(stat = "identity") + 
+  theme_paperwhite() +
+  scale_y_continuous(expand = c(0,0)) +
+  theme(panel.border = element_blank(),
+        axis.line = element_line(colour = "black")) + 
+  xlab("TF") +
+  ylab("Num motif matches") +
+  ggtitle("MYH7B promoter motif matches")
+ggsave("figures/myh7b_promoter_motif_matches.png")
+ggsave("figures/myh7b_promoter_motif_matches.pdf")
+```
+
 
