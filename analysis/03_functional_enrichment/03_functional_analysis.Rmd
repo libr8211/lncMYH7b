@@ -63,6 +63,7 @@ kegg_code <- "hsa"
 # CC: Cellular Component
 # MF: Molecular Function
 go_classes <- c("BP", "CC", "MF")
+
 ```
 
 
@@ -169,32 +170,39 @@ A common approach in analyzing gene expression profiles was identifying differen
 ```{r gsea_go}
 # Prepare the gene list.
 # Here we're subtracting the adjusted P value from 1.
-gene_list <- 1 - res_df$padj
-names(gene_list) <- row.names(res_df)
-names(gene_list) <- sapply(names(gene_list), 
+gene_list_spoe <- 1 - res_spoe_df$padj
+names(gene_list_spoe) <- row.names(res_spoe_df)
+names(gene_list_spoe) <- sapply(names(gene_list_spoe), 
                            function(x) {unlist(base::strsplit(x, ".", fixed = T))[[1]]})
-gene_list <- sort(gene_list, decreasing = TRUE)
-summary(gene_list)
+gene_list_spoe <- sort(gene_list_spoe, decreasing = TRUE)
+summary(gene_list_spoe)
+
+gene_list_asokd <- 1 - res_asokd_df$padj
+names(gene_list_asokd) <- row.names(res_asokd_df)
+names(gene_list_asokd) <- sapply(names(gene_list_asokd), 
+                           function(x) {unlist(base::strsplit(x, ".", fixed = T))[[1]]})
+gene_list_asokd <- sort(gene_list_asokd, decreasing = TRUE)
+summary(gene_list_asokd)
 
 # Now run GSEA
 # help("gseGO", "clusterProfiler")
 # minGSSize = 100
-gsea_go <- gseGO(
-    geneList = gene_list,
-    ont = params$go_class,
+gsea_go_spoe <- gseGO(
+    geneList = gene_list_spoe,
+    ont = "BP",
     OrgDb = org_db,
     keyType = "ENSEMBL",
     pvalueCutoff = 1,
     minGSSize = 100
 )
-print(gsea_go)
-gsea_go_tbl <- gsea_go %>%
+print(gsea_go_spoe)
+gsea_go_tblspoe <- gsea_go_spoe %>%
     slot("result") %>%
     as_tibble() %>%
     camel()
-saveData(gsea_go, gsea_go_tbl, dir = params$data_dir)
+saveData(gsea_go_spoe, gsea_go_tblspoe, dir = params$data_dir)
 write_csv(
-    gsea_go_tbl,
+    gsea_go_tblspoe,
     path = file.path(
         params$results_dir,
         paste0(
@@ -211,7 +219,7 @@ write_csv(
         )
     )
 )
-gsea_go_tbl
+gsea_go_tblspoe
 ```
 
 # KEGG enrichment analysis
