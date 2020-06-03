@@ -82,8 +82,8 @@ write_csv(tpm_spoe, "../../ipscm_rnaseq/results/transcript_tpm.csv")
 ```{r}
 myh7b_gene_id <- g2s[grep("MYH7B", g2s$geneName),"geneID"]
 myh7b_transcript_ids <- unique(tx2gene[grep(myh7b_gene_id, tx2gene$GENEID), "TXNAME"])
-exon_skipped_transcript <- "ENST00000262873.12_exon_8_skipped"
-non_exon_skipped <- "ENST00000262873.12"
+exon_skipped_transcript <- "ENST00000618182.5_exon_8_skipped"
+non_exon_skipped <- "ENST00000618182.5"
 grep("exon", tpm_asokd$transcript_id)
 
 
@@ -96,9 +96,11 @@ myh7b_tpm_asokd <- tpm_asokd[tpm_asokd$transcript_id %in% myh7b_transcript_ids, 
 
 ```{r}
 # let's make a plot!
-g <- ggplot(myh7b_tpm_asokd, aes(x = transcript_id, y = log2(tpm)))
-g + geom_point() + 
-  theme_paperwhite()
+transcript7b_tpm <- filter(myh7b_tpm_asokd, transcript_id=="ENST00000618182.5")
+lnctranscript7b_tpm <- filter(myh7b_tpm_asokd, transcript_id=="ENST00000618182.5_exon_8_skipped")
+
+g <- ggplot()
+g + geom_point(data = transcript7b_tpm, aes(x = transcript_id, y = log2(tpm))) + geom_point(data = lnctranscript7b_tpm, aes(x = transcript_id, y = log2(tpm))) + theme_paperwhite()
 
 # Main transcript
 myh7b_tpm_asokd <- tpm_asokd[tpm_asokd$transcript_id %in% c(exon_skipped_transcript, non_exon_skipped), ] %>%
@@ -107,17 +109,14 @@ myh7b_tpm_asokd <- tpm_asokd[tpm_asokd$transcript_id %in% c(exon_skipped_transcr
                values_to = "tpm") %>%
   merge(samples)
 
-myh7b_tpm_asokd$transcript_id <- factor(myh7b_tpm_asokd$transcript_id, levels = c("ENST00000262873.12_exon_8_skipped", "ENST00000262873.12"),
-                                        labels = c("lncMYH7B", "MYH7B"))
-g <- ggplot(myh7b_tpm_asokd, aes(x = transcript_id, y = tpm))
-g + geom_boxplot() + 
-  theme_paperwhite() + geom_jitter(color = "#a8404c") + 
-  ggtitle("ASO KD: MYH7B vs lncMYH7B") + 
-  xlab("") +
-  ylab("TPM")
+transcript7b_tpm$transcript_id <- factor(transcript7b_tpm$transcript_id, levels = "ENST00000618182.5",
+                                        labels = "MYH7B")
+lnctranscript7b_tpm$transcript_id <- factor(lnctranscript7b_tpm$transcript_id, levels = "ENST00000618182.5_exon_8_skipped",
+                                        labels = "lncMYH7B")
+g <- ggplot()
+g + geom_boxplot(data = transcript7b_tpm, aes(x = transcript_id, y = tpm)) + geom_boxplot(data = lnctranscript7b_tpm, aes(x = transcript_id, y = tpm)) + theme_paperwhite() + geom_jitter(color = "#a8404c") +
+  ggtitle("iPS-CMs: MYH7B vs lncMYH7B") + xlab("") + ylab("TPM")
 ggsave("figures/aso_kd_myh7b_vs_lncmyh7b.pdf", height = 5, width = 2)
 ```
-
-
 
 
