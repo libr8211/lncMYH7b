@@ -38,15 +38,18 @@ tx2gene <- gtfdf %>%
 ```
 
 ```{r}
-samples <- read.csv("../../human_heart_rnaseq/samplesheet.csv")
-
-samples$condition <- sapply(samples$sample_title, function(x) {
-  gsub('[[:digit:]]+', '', x)
-})
+samples <- read.csv("../../samplesheet.csv") %>%
+  filter(sample_type == "heart sample")
 
 
-files <- file.path("../../human_heart_rnaseq/results/salmon", samples$run_accession, "quant.sf")
-names(files) <- samples$run_accession
+
+
+files <- file.path("../../human_heart_rnaseq/results/salmon", samples$sample_id, "quant.sf")
+names(files) <- samples$sample_id
+length(list.files("../../human_heart_rnaseq/results/salmon"))
+# We're missing three files, so for now let's filter these out
+files <- files[sapply(files, file.exists)]
+
 txisalmon <- tximport(files, type = "salmon", tx2gene = tx2gene, txOut = TRUE)
 ```
 
@@ -56,7 +59,7 @@ tpm <- txisalmon$abundance %>%
   as.data.frame() %>%
   rownames_to_column("transcript_id")
 
-write_csv(tpm, "../../human_heart_rnaseq/results/transcript_tpm.csv")
+write_csv(tpm, "results/human_heart_transcript_tpm.csv")
 ```
 
 ```{r}
@@ -98,6 +101,11 @@ g + geom_boxplot() +
   xlab("") +
   ylab("TPM")
 ```
+
+```{r}
+
+```
+
 
 
 

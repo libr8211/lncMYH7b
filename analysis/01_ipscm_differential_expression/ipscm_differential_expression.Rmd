@@ -226,17 +226,19 @@ This plot shows only differentially expressed genes on a per-sample basis. We ha
 ```{r plot_deg_heatmap}
 plot_deg_heatmap <- function(res, rld, samp_df, interesting_groups = "condition", 
                              padj_thresh = 0.01, lfc_thresh = 0, title,
-                             ann_colors = list(condition = c(SP_CTL  = "#424242", SP_OE = "#a8404c"))) {
+                             ann_colors = list(condition = c(SP_CTL  = "#424242", SP_OE = "#a8404c")),
+                             show_rownames = FALSE) {
   deg <- res %>%
     as.data.frame() %>%
     rownames_to_column("geneID") %>%
     filter(padj < padj_thresh, abs(log2FoldChange) > lfc_thresh)
   
-  rld_counts <- rld@assays$data[[1]]
+  rld_counts <- rld@assays@data[[1]]
   deg_rld_counts <- rld_counts[which(rownames(rld_counts) %in% deg$geneID),]
   rld_scaled <- t(scale(t(deg_rld_counts)))
   
-  anndf <- samp_df %>% dplyr::select(interesting_groups)
+  rownames(rld_scaled) <- g2s$geneName[match(rownames(rld_scaled), g2s$geneID)]
+  anndf <- samp_df %>% dplyr::select(all_of(interesting_groups))
   
   
   col_pal <- c(colorRampPalette(colors = c("#424242", "#ffffff"))(49),
@@ -245,7 +247,7 @@ plot_deg_heatmap <- function(res, rld, samp_df, interesting_groups = "condition"
   
   levels(anndf$condition)
   htmap <- pheatmap(rld_scaled, color = col_pal,
-                 show_rownames = F,
+                 show_rownames = show_rownames,
                  annotation_col = anndf,
                  annotation_colors = ann_colors,
                  main = title)
@@ -254,15 +256,27 @@ plot_deg_heatmap <- function(res, rld, samp_df, interesting_groups = "condition"
 
 spoe_heatmap <- plot_deg_heatmap(res_spoe, rld_spoe, samp_df = samples_spoe, interesting_groups = "condition",
                  padj_thresh = 0.01, lfc_thresh = 0, title = "SP OE DEG")
+show(spoe_heatmap)
 pdf("figures/spoe_deg_heatmap.pdf"); show(spoe_heatmap); dev.off()
 png("figures/spoe_deg_heatmap.png"); show(spoe_heatmap); dev.off()
 
 
 asokd_heatmap <- plot_deg_heatmap(res_asokd, rld_asokd, samp_df = samples_asokd, interesting_groups = "condition",
-                 padj_thresh = 0.01, lfc_thresh = 0, title = "ASO KD DEG",
-                 list(condition = c(ASO_CTL  = "#424242", ASO_KD = "#a8404c")))
-pdf("figures/asokd_deg_heatmap.pdf"); show(asokd_heatmap); dev.off()
+                 padj_thresh = 0.01, lfc_thresh = 1, title = "ASO KD DEG",
+                 ann_colors = list(condition = c(ASO_CTL  = "#424242", ASO_KD = "#a8404c")),
+                 show_rownames = TRUE)
+show(asokd_heatmap)
+pdf("figures/asokd_deg_heatmap.pdf", width = 6, height = 7); show(asokd_heatmap); dev.off()
 png("figures/asokd_deg_heatmap.png"); show(asokd_heatmap); dev.off()
+
+
+# Let's quickly quantify how many genes go down and how many go up.
+  deg <- res_asokd %>%
+    as.data.frame() %>%
+    rownames_to_column("geneID") %>%
+    filter(padj < 0.01, abs(log2FoldChange) > 1) %>%
+    group_by(log2FoldChange > 0) %>%
+    summarize(count = n())
 ```
 
 
@@ -302,15 +316,28 @@ g + geom_vline(xintercept = 0, lty = 2) +
 ggsave("figures/spoe_volcano.pdf")
 ggsave("figures/spoe_volcano.png")
 
+
+# Plotting the unshrunken version to match lindsey's plot
+resdf_asokd <- res_asokd %>% 
+  as.data.frame() %>%
+  rownames_to_column("geneID") %>%
+  merge(g2s) %>%
+  dplyr::select(geneID, geneName, everything())
+
+
 g <- ggplot(resdf_asokd, aes(x = log2FoldChange, y = -log10(padj), label = geneName))
 g + geom_vline(xintercept = 0, lty = 2) +
   geom_point(data = resdf_asokd %>% filter(padj >= 0.01), color = "#424242", alpha = 0.4) + 
   geom_point(data = resdf_asokd %>% filter(padj < 0.01), color = "#a8404c", alpha = 0.8) + 
-  geom_text_repel(data = resdf_asokd %>% filter(abs(log2FoldChange) > 2)) +
+  # geom_text_repel(data = resdf_asokd %>% filter(abs(log2FoldChange) > 2)) +
   theme_paperwhite() + 
-  ggtitle("ASO KD")
+  ggtitle("lncMYH7B ASO KD",
+          subtitle = "DESeq2 Unshrunken")
 ggsave("figures/asokd_volcano.pdf")
 ggsave("figures/asokd_volcano.png")
+p <- ggplot(resdf_asokd, aes(x = log2FoldChange))
+p + geom_density()
+
 ```
 
 
